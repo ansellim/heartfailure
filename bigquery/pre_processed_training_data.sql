@@ -15,7 +15,7 @@ WITH positive_records as (
     from  `physionet-data.mimiciii_clinical.admissions`  A 
     join `physionet-data.mimiciii_clinical.diagnoses_icd` B on A.SUBJECT_ID =B.SUBJECT_ID and A.HADM_ID=B.HADM_ID
     join `physionet-data.mimiciii_clinical.d_icd_diagnoses` C on B.ICD9_CODE = C.ICD9_CODE
-    join positive_records E on A.SUBJECT_ID =E.SUBJECT_ID 
+    join positive_records E on A.SUBJECT_ID =E.SUBJECT_ID  -- get the positive 428 record patients
     group by A.ADMITTIME,A.SUBJECT_ID,A.HADM_ID
     HAVING HFDetectedFlag = 0
 ), raw_training_data as (
@@ -25,10 +25,12 @@ WITH positive_records as (
         on P.SUBJECT_ID=N.SUBJECT_ID and P.HADM_ID=N.HADM_ID
 ), pre_processed_training_data as (
     select *,
-    RegexP_REPLACE(LOWER(text), r"\[\*\*(.*)\*\*\]","")  as clean_text
+    RegexP_REPLACE( -- remove commas
+        RegexP_REPLACE( -- remove redacted
+            LOWER(text), r"\[\*\*(.*)\*\*\]",""),
+        r",","")  as clean_text
     from raw_training_data 
     where category = "Discharge summary"
 )
 
 select * from pre_processed_training_data
-
