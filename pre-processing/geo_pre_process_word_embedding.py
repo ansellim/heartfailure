@@ -5,15 +5,12 @@
 
 
 
-from gensim.models import FastText,KeyedVectors
+from gensim.models import KeyedVectors
 from gensim.models.fasttext import load_facebook_model
 import fasttext
 import fasttext.util
 import numpy as np
 import pandas as pd
-from scipy import sparse
-import torch
-from torch.utils.data import TensorDataset, Dataset
 import pickle
 from nltk.corpus import stopwords
 import nltk
@@ -89,7 +86,7 @@ def pad_seq_array(seq_arrays,max_length):
     for idx,seq in enumerate(seq_arrays):
         if idx %100 == 0:
             print(idx, " note padding processed ")
-        length = seq.shape[0]
+        length = len(seq)
         zero_matrix = np.zeros((max_length-length, 100))
         new_seq = np.vstack((seq,zero_matrix))
         new_arrays.append(new_seq)
