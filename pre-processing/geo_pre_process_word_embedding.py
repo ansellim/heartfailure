@@ -17,6 +17,7 @@ import nltk
 nltk.download('stopwords')
 import re, string
 from sklearn.model_selection import train_test_split
+import scipy
 
 #this will take 30 min++ to download
 fasttext.util.download_model('en', if_exists='ignore')  # English
@@ -77,8 +78,8 @@ def note_to_vec(input_note):
     #1 break input notes into text list
     #2 convert each text into a vector
     #Append them into a matrix of n x 100 ,where n = number of words in input_notes
-    word_list = [get_vector(i,m1,m2) for i in input_note]
-    return word_list
+    word_list = [get_vector(i,m1,m2) for i in input_note.split()]
+    return np.array(word_list)
 
 def pad_seq_array(seq_arrays,max_length):
     #print(max_length)
@@ -87,9 +88,13 @@ def pad_seq_array(seq_arrays,max_length):
         if idx %100 == 0:
             print(idx, " note padding processed ")
         length = len(seq)
-        zero_matrix = np.zeros((max_length-length, 100))
-        new_seq = np.vstack((seq,zero_matrix))
-        new_arrays.append(new_seq)
+        try:
+            zero_matrix = np.zeros((max_length-length, 100))
+            new_seq = np.vstack((seq,zero_matrix))
+            new_seq_csr_matrix = scipy.sparse.csr_matrix(new_seq)
+        except:
+            print("seq length is ",length,max_length)
+        new_arrays.append(new_seq_csr_matrix)
     return new_arrays
 
 def create_dataset(grouped_df,max_length):
@@ -102,6 +107,7 @@ def create_dataset(grouped_df,max_length):
     
     #pad it to same max_length x 100 matrix
     padded_seq_arrays=pad_seq_array(seq_arrays,max_length)
+    del seq_arrays[:]
     labels = grouped_df['hf_label'].to_list()
     patient_ids = grouped_df['SUBJECT_ID'].to_list()
     return patient_ids, labels, padded_seq_arrays
