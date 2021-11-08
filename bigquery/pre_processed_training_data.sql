@@ -24,7 +24,7 @@ WITH positive_records as (
     join `physionet-data.mimiciii_notes.noteevents` N 
         on P.SUBJECT_ID=N.SUBJECT_ID and P.HADM_ID=N.HADM_ID
 ), pre_processed_training_data as (
-    select *,
+     select P.*,N.category,N.text, -- geo update to avoid duplicate subject_id and hadm_id
     RegexP_REPLACE( -- remove commas
         RegexP_REPLACE( -- remove redacted
             LOWER(text), r"\[\*\*(.*)\*\*\]",""),
