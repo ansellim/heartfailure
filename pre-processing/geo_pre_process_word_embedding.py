@@ -152,7 +152,13 @@ if __name__ == "__main__":
 
 
     test_ids, test_labels, test_seqs = create_dataset(test_ds,max_length)
-    pickle.dump(train_ids, open("dataset.ids.train", 'wb'), pickle.HIGHEST_PROTOCOL)
-    pickle.dump(train_labels, open("dataset.labels.train", 'wb'), pickle.HIGHEST_PROTOCOL)
-    pickle.dump(train_seqs, open("dataset.seqs.train", 'wb'), pickle.HIGHEST_PROTOCOL)
+    pickle.dump(train_ids, open("dataset.ids.test", 'wb'), pickle.HIGHEST_PROTOCOL)
+    pickle.dump(train_labels, open("dataset.labels.test", 'wb'), pickle.HIGHEST_PROTOCOL)
+    pickle.dump(train_seqs, open("dataset.seqs.test", 'wb'), pickle.HIGHEST_PROTOCOL)
     print("test  data set created")
+
+
+
+    ### to read the data    
+    #train_seqs = pickle.load(open('dataset.seqs.train'  , 'rb'))
+    #train_seqs[0].toarray().shape  # use toarray() to convert back to numpy array
