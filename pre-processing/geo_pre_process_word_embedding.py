@@ -134,28 +134,41 @@ def split_test_train_dataset(positive_data_path,negative_data_path):
     max_length=max([len(note.split()) for note in grouped_df['cleaned_text_2'].to_list()])
 
     #split the dataset into train, test
-    train_data,test_data = train_test_split(grouped_df,test_size=0.2,random_state = 123)
-    print(len(train_data),len(test_data),max_length)
-    return train_data,test_data,max_length
+    train_ratio = 0.75
+    validation_ratio = 0.10
+    test_ratio = 0.10
+    
+    train_data,intermediate_test_data = train_test_split(grouped_df,test_size=1-train_ratio,random_state = 123)
+    val_data,test_data = train_test_split(intermediate_test_data,test_size=test_ratio/(test_ratio + validation_ratio),random_state = 123)
+
+
+    print(len(train_data),len(val_data),len(test_data),max_length)
+    return train_data,val_data,test_data,max_length
 
 
 
 if __name__ == "__main__":
-    train_ds,test_ds,max_length = split_test_train_dataset(POSTIVE_DATA_PATH,NEGATIVE_DATA_PATH)
+    train_ds,val_ds,test_ds,max_length = split_test_train_dataset(POSTIVE_DATA_PATH,NEGATIVE_DATA_PATH)
     print("train test data set split completed")
 
     train_ids, train_labels, train_seqs = create_dataset(train_ds,max_length)
     pickle.dump(train_ids, open("dataset.ids.train", 'wb'), pickle.HIGHEST_PROTOCOL)
     pickle.dump(train_labels, open("dataset.labels.train", 'wb'), pickle.HIGHEST_PROTOCOL)
     pickle.dump(train_seqs, open("dataset.seqs.train", 'wb'), pickle.HIGHEST_PROTOCOL)
-    print("train  data set created")
+    print("train data set created")
+
+    val_ids, val_labels, val_seqs = create_dataset(val_ds,max_length)
+    pickle.dump(val_ids, open("dataset.ids.validation", 'wb'), pickle.HIGHEST_PROTOCOL)
+    pickle.dump(val_labels, open("dataset.labels.validation", 'wb'), pickle.HIGHEST_PROTOCOL)
+    pickle.dump(val_seqs, open("dataset.seqs.validation", 'wb'), pickle.HIGHEST_PROTOCOL)
+    print("val data set created")
 
 
     test_ids, test_labels, test_seqs = create_dataset(test_ds,max_length)
     pickle.dump(test_ids, open("dataset.ids.test", 'wb'), pickle.HIGHEST_PROTOCOL)
     pickle.dump(test_labels, open("dataset.labels.test", 'wb'), pickle.HIGHEST_PROTOCOL)
     pickle.dump(test_seqs, open("dataset.seqs.test", 'wb'), pickle.HIGHEST_PROTOCOL)
-    print("test  data set created")
+    print("test data set created")
 
 
 
