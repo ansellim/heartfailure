@@ -152,9 +152,9 @@ if __name__ == "__main__":
 
 
     test_ids, test_labels, test_seqs = create_dataset(test_ds,max_length)
-    pickle.dump(train_ids, open("dataset.ids.test", 'wb'), pickle.HIGHEST_PROTOCOL)
-    pickle.dump(train_labels, open("dataset.labels.test", 'wb'), pickle.HIGHEST_PROTOCOL)
-    pickle.dump(train_seqs, open("dataset.seqs.test", 'wb'), pickle.HIGHEST_PROTOCOL)
+    pickle.dump(test_ids, open("dataset.ids.test", 'wb'), pickle.HIGHEST_PROTOCOL)
+    pickle.dump(test_labels, open("dataset.labels.test", 'wb'), pickle.HIGHEST_PROTOCOL)
+    pickle.dump(test_seqs, open("dataset.seqs.test", 'wb'), pickle.HIGHEST_PROTOCOL)
     print("test  data set created")
 
 
