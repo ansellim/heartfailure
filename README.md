@@ -46,6 +46,7 @@ abc
 To set up the same locally run this command and fill in your physionet password when prompted.
 `wget -r -N -c -np --user <username> --ask-password https://physionet.org/files/mimiciii/1.4/`
 
-hello there from ansel
-
 I've also added this directory to the `.gitignore` so the data files won't be git-tracked.
+
+## update: neural (10/11/21)
+Ansel: I've created a new folder 'neural' where I'll be putting in code for the "deep learning" approach to our problem. I have put in an environment.yml file which you can use to create a conda environment with the necessary packages to run my code. Run `conda env create -f environment.yml` to do so. The first prototype I've created in prototype1.py attempts to use the pretrained BlueBERT model (https://huggingface.co/bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16) for our (binary) sequence classification task.
