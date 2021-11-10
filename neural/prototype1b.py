@@ -52,16 +52,16 @@ def compute_metrics(pred):
   labels = pred.label_ids
   preds = pred.predictions.argmax(-1)
   acc = accuracy_score(labels, preds)
-  auc = roc_auc_score(labels, preds)
-  precision = precision_score(labels, preds)
-  recall = recall_score(labels, preds)
-  f1 = f1_score(labels,preds)
+  # auc = roc_auc_score(labels, preds)
+  # precision = precision_score(labels, preds)
+  # recall = recall_score(labels, preds)
+  # f1 = f1_score(labels,preds)
   return {
       'accuracy': acc,
-      'auc': auc,
-      'precision': precision,
-      'recall': recall,
-      'f1_score': f1
+      # 'auc': auc,
+      # 'precision': precision,
+      # 'recall': recall,
+      # 'f1_score': f1
   }
 
 ########### Load data ###############
