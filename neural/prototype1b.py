@@ -122,8 +122,8 @@ args = TrainingArguments(
 
 trainer = Trainer(model=model,
                   args = args,
-                  train_dataset = train_dataset,
-                  eval_dataset = test_dataset,
+                  train_dataset = train_dataset, # train on train set
+                  eval_dataset = val_dataset, # evaluate on validation set
                   compute_metrics = compute_metrics,
                   callbacks=[EarlyStoppingCallback(early_stopping_patience=5)])
 
@@ -131,4 +131,4 @@ trainer.train()
 
 trainer.evaluate()
 
-trainer.predict(test_dataset=test_dataset)
+trainer.predict(test_dataset=test_dataset) # predict on test set.
