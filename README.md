@@ -49,4 +49,10 @@ To set up the same locally run this command and fill in your physionet password 
 I've also added this directory to the `.gitignore` so the data files won't be git-tracked.
 
 ## update: neural (10/11/21)
-Ansel: I've created a new folder 'neural' where I'll be putting in code for the "deep learning" approach to our problem. I have put in an environment.yml file which you can use to create a conda environment with the necessary packages to run my code. Run `conda env create -f environment.yml` to do so. The first prototype I've created in prototype1.py attempts to use the pretrained BlueBERT model (https://huggingface.co/bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16) for our (binary) sequence classification task.
+Ansel: I've created a new folder 'neural' where I'll be putting in code for the "deep learning" approach to our problem. 
+
+* I have put in an environment.yml file which you can use to create a conda environment with the necessary packages to run my code. Run `conda env create -f environment.yml` to do so. 
+* The first prototype I've created in prototype1.py attempts to use the pretrained BlueBERT model (https://huggingface.co/bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16) for our (binary) sequence classification task.
+* Use the "run_model.ipynb" jupyter notebook to run `prototype1.ipynb` on Google Colab: upload the notebook to Google Colab, select a runtime with GPU, then run the notebook. If the notebook runs correctly, you should see print output similar to this image:
+
+![img.png](img.png)
