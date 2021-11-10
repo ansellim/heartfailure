@@ -12,6 +12,7 @@ from nltk.tokenize import TreebankWordTokenizer
 from sklearn.metrics import roc_auc_score
 from datasets import Dataset
 import re
+import pickle
 
 random.seed(42)
 np.random.seed(42)
@@ -43,6 +44,7 @@ def tokenize(string):
     return sentence
 
 train_texts,test_texts = [tokenize(sentence) for sentence in train_texts], [tokenize(sentence) for sentence in test_texts]
+
 
 ########### Model training & evaluation ###########
 
@@ -76,10 +78,10 @@ test_dataset = MyDataset(test_encodings,test_labels)
 
 training_args = TrainingArguments(
     output_dir='./results',             # output directory
-    num_train_epochs=10,                # total number of training epochs
+    num_train_epochs=5,                # total number of training epochs
     per_device_train_batch_size=8,      # batch size per device during training
     per_device_eval_batch_size=8,      # batch size for evaluation
-    warmup_steps=600,                   # number of warmup steps for learning rate scheduler
+    warmup_steps=500,                   # number of warmup steps for learning rate scheduler
     weight_decay=0.01,                  # strength of weight decay
     logging_dir='./logs',               # directory for storing logs
     load_best_model_at_end=True,        # load the best model when finished training
