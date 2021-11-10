@@ -56,7 +56,7 @@ num_labels=2
 max_length =512
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForSequenceClassification.from_pretrained(model_name,num_labels=num_labels)\
+model = AutoModelForSequenceClassification.from_pretrained(model_name,num_labels=num_labels)
 
 model=model.to(device)
 
