@@ -126,12 +126,12 @@ trainer = Trainer(model=model,
                   compute_metrics = compute_metrics,
                   callbacks=[EarlyStoppingCallback(early_stopping_patience=5)])
 
-# Save model
-model.save_pretrained(destination_path)
-tokenizer.save_pretrained(destination_path)
-
 trainer.train()
 
 trainer.evaluate()
+
+# Save model
+model.save_pretrained(destination_path)
+tokenizer.save_pretrained(destination_path)
 
 trainer.predict(test_dataset=test_dataset) # predict on test set.
