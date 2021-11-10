@@ -134,7 +134,7 @@ def split_test_train_dataset(positive_data_path,negative_data_path):
     max_length=max([len(note.split()) for note in grouped_df['cleaned_text_2'].to_list()])
 
     #split the dataset into train, test
-    train_ratio = 0.75
+    train_ratio = 0.80
     validation_ratio = 0.10
     test_ratio = 0.10
     
