@@ -115,7 +115,6 @@ args = TrainingArguments(
     metric_for_best_model='accuracy',
     logging_steps=100,                              # log & save weights each logging_steps
     evaluation_strategy="steps",                    # evaluate each `logging_steps`
-    do_eval=True,
     eval_steps=500,
     seed=42
 )
