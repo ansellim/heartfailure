@@ -9,7 +9,7 @@ import numpy as np
 import random
 from sklearn.model_selection import train_test_split
 from nltk.tokenize import TreebankWordTokenizer
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, accuracy_score
 from datasets import Dataset
 import re
 import pickle
