@@ -115,7 +115,6 @@ args = TrainingArguments(
     metric_for_best_model='accuracy',
     logging_steps=100,                              # log & save weights each logging_steps
     evaluation_strategy="steps",                    # evaluate each `logging_steps`
-    do_eval=True,
     eval_steps=500,
     seed=42
 )
@@ -126,6 +125,10 @@ trainer = Trainer(model=model,
                   eval_dataset = val_dataset, # evaluate on validation set
                   compute_metrics = compute_metrics,
                   callbacks=[EarlyStoppingCallback(early_stopping_patience=5)])
+
+# Save model
+model.save_pretrained(destination_path)
+tokenizer.save_pretrained(destination_path)
 
 trainer.train()
 

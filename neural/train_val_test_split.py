@@ -39,14 +39,20 @@ Steps involved in tokenize():
 3. Tokenizing the text using NLTK Treebank tokenizer
 '''
 
+# def tokenize(string):
+#     string = string.lower()
+#     string = re.sub(r'[\r\n]+', ' ', string)
+#     string = re.sub(r'[^\x00-\x7F]+', ' ', string)
+#     tokenized = TreebankWordTokenizer().tokenize(string)
+#     sentence = ' '.join(tokenized)
+#     sentence = re.sub(r"\s's\b", "'s", sentence)
+#     return sentence
+
 def tokenize(string):
-    string = string.lower()
-    string = re.sub(r'[\r\n]+', ' ', string)
-    string = re.sub(r'[^\x00-\x7F]+', ' ', string)
-    tokenized = TreebankWordTokenizer().tokenize(string)
-    sentence = ' '.join(tokenized)
-    sentence = re.sub(r"\s's\b", "'s", sentence)
-    return sentence
+    '''
+    Dummy tokenizer: doesn't do anything to the string.
+    '''
+    return string
 
 train_texts, val_texts, test_texts = [tokenize(sentence) for sentence in train_texts], [tokenize(sentence) for sentence in val_texts], [tokenize(sentence) for sentence in test_texts]
 
