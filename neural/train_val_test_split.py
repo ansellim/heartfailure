@@ -9,8 +9,8 @@ import pickle
 import re
 from nltk.tokenize import TreebankWordTokenizer
 
-random.seed(42)
-np.random.seed(42)
+random.seed(43)
+np.random.seed(43)
 
 ########### Additional preprocessing, etc. ###########
 
