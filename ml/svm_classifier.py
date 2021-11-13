@@ -1,7 +1,7 @@
 '''
 Ansel Lim, 13 Nov 2021
 
-Basic SVM classifier with a little bit of grid search
+Basic SVM classifier with a little bit of grid search. This is very rough work.
 
 With reference to https://towardsdatascience.com/machine-learning-nlp-text-classification-using-scikit-learn-python-and-nltk-c52b92a7c73a
 '''
@@ -38,6 +38,10 @@ grid_search.fit(train.text,train.y)
 # Display best score / best params
 print(grid_search.best_score_)
 print(grid_search.best_params_)
+
+# Check on val & test data
+print("Val data", grid_search.best_estimator_.score(val.text,val.y))
+print("Test data", grid_search.best_estimator_.score(test.text,test.y))
 
 # Save the best model
 joblib.dump(grid_search.best_estimator_,"./models/svm_classifier_" + str(start) + "_.pkl")
