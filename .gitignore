@@ -4,3 +4,6 @@
 physionet.org/*
 pre-processing/cc.en.300.bin
 __pycache__/*
+
+#Dev files
+dev.py
