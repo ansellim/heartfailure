@@ -15,7 +15,7 @@ if __name__ == "__main__":
     val = get_data('val')
 
     # TF-IDF Feature engineering
-    all_text = pd.concat([train['text'],test['text']])
+    all_text = pd.concat([train['text'],val['text']])
     vectorizer = build_tfidf_vectorizer(all_text)
     tfvocab = vectorizer.get_feature_names()
 
