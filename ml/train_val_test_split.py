@@ -62,3 +62,7 @@ data['train_labels'], data['val_labels'], data['test_labels'] = train_labels,val
 
 with open("./datasets/data.pkl", "wb") as file:
     pickle.dump(data, file)
+
+hf_terms = pd.read_excel("../heart_failure_terms.xlsx")
+with open("./datasets/hf_terms.pkl", "wb") as file:
+    pickle.dump(hf_terms, file)

@@ -92,7 +92,7 @@ def compare_features_plot(complete_terms_features, complete_terms_fuzzy_features
     plt.savefig("Compare Sparse Matrix.png")
     plt.close()
 
-if __name__ == "__main__":
+def generate_hotspot_features():
     # raw_negative = pd.read_csv("bigquery/bq_data_in_csv/hf_negative.csv")
     # raw_positive = pd.read_csv("bigquery/bq_data_in_csv/hf_positives.csv")
 
@@ -138,4 +138,5 @@ if __name__ == "__main__":
 
         processed_data[grp + "_labels"] = data[grp + "_labels"].copy()
 
+    return processed_data
     

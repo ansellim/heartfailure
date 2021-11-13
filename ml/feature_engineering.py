@@ -5,6 +5,7 @@ import re
 import pickle
 from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.decomposition import LatentDirichletAllocation
 
 def pre_process_text(clean_text:str) -> str:
     """
@@ -64,3 +65,19 @@ def build_tfidf_vectorizer(all_text:pd.DataFrame) -> TfidfVectorizer:
     word_vectorizer.fit(all_text)
     
     return word_vectorizer
+
+## referenced from 
+### https://towardsdatascience.com/topic-modeling-and-latent-dirichlet-allocation-in-python-9bf156893c24
+### https://www.machinelearningplus.com/nlp/topic-modeling-python-sklearn-examples/#7createthedocumentwordmatrix
+
+# build LDA based on tfidf
+def generate_lda_features(data, n_topics):
+    model = LatentDirichletAllocation(
+        n_components = n_topics,
+        max_iter = 10,
+        learning_method = "online",
+        random_state = 42,
+        n_jobs = 1
+    )
+    output = model.fit_transform(data)
+    return output
