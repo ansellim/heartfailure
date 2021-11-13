@@ -46,4 +46,4 @@ grid_clf.fit(train_and_val.text,train_and_val.y)
 grid_clf.best_estimator_.score(test.text,test.y)
 
 # Save the best model
-joblib.dump(grid_clf.best_estimator_,"./models/adaboost_classifier_" + str(start) + "_.pkl")
+joblib.dump(grid_clf.best_estimator_,"./models/adaboost_classifier_" + str(start.strftime("%Y%m%d_%H%M%S")) + "_.pkl")

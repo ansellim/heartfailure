@@ -44,5 +44,5 @@ print("Val data", grid_search.best_estimator_.score(val.text,val.y))
 print("Test data", grid_search.best_estimator_.score(test.text,test.y))
 
 # Save the best model
-joblib.dump(grid_search.best_estimator_,"./models/svm_classifier_" + str(start) + "_.pkl")
+joblib.dump(grid_search.best_estimator_,"./models/svm_classifier_" + str(start.strftime("%Y%m%d_%H%M%S")) + "_.pkl")
 
