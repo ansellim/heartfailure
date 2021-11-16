@@ -1,8 +1,9 @@
 import pandas as pd
 import xgboost as xgb
-from feature_engineering import pre_process_text, get_data, build_tfidf_vectorizer, generate_lda_features
+from feature_engineering import pre_process_text, get_data, build_tfidf_vectorizer
 from hotspot import get_hotspot_feature_names, generate_hotspot_features
-# from lda import generate_lda_features
+from lda import build_count_vectorizer, generate_lda_features
+# from word2vec import generate_w2v_features
 from model import run_xgboost, true_evaluation
 from datetime import datetime
 from scipy.sparse import hstack
@@ -18,13 +19,13 @@ if __name__ == "__main__":
 
     # TF-IDF Feature engineering
     all_text = pd.concat([train['text'],val['text']])
-    vectorizer = build_tfidf_vectorizer(all_text)
-    tfvocab = vectorizer.get_feature_names()
+    tfidf_vectorizer = build_tfidf_vectorizer(all_text)
+    tfvocab = tfidf_vectorizer.get_feature_names()
 
-    X_train_tfidf = vectorizer.transform(train['text'])
+    X_train_tfidf = tfidf_vectorizer.transform(train['text'])
     print(f'X_train_tfidf shape:{X_train_tfidf.shape}')
     
-    X_val_tfidf = vectorizer.transform(val['text'])
+    X_val_tfidf = tfidf_vectorizer.transform(val['text'])
     print(f'X_val_tfidf shape:{X_val_tfidf.shape}')
     
     # Hotspot technique feature engineering
@@ -32,10 +33,18 @@ if __name__ == "__main__":
     X_train_hotspot = generate_hotspot_features(train["text"], hf_terms)
     X_val_hotspot = generate_hotspot_features(val["text"], hf_terms)
 
-    # LDA feature engineering
+    # LDA feature engineering from BOW
+    bow_vectorizer = build_count_vectorizer(all_text)
+    X_train_lda = bow_vectorizer.transform(train["text"])
+    X_val_lda = bow_vectorizer.transform(val["text"])
+
     n_topics = 10
-    X_train_lda = generate_lda_features(X_train_tfidf, n_topics)
-    X_val_lda = generate_lda_features(X_val_tfidf, n_topics)
+    X_train_lda = generate_lda_features(X_train_lda, n_topics)
+    X_val_lda = generate_lda_features(X_val_lda, n_topics)
+
+    # word2vec feature engineering
+    # X_train_w2v = generate_w2v_features(train["text"])
+    # X_val_w2v = generate_w2v_features(val["text"])
 
     # Train XGB model
     X_train = hstack([X_train_tfidf, X_train_hotspot, X_train_lda])
@@ -52,9 +61,11 @@ if __name__ == "__main__":
     model = run_xgboost(d_train,d_val)
 
     # Run true evaluation on out-of-sample (test) set
-    X_test_tfidf = vectorizer.transform(test['text'])
+    X_test_tfidf = tfidf_vectorizer.transform(test['text'])
     X_test_hotspot = generate_hotspot_features(test["text"], hf_terms)
-    X_test_lda = generate_lda_features(X_test_tfidf, n_topics)
+    
+    X_test_lda = bow_vectorizer.transform(test["text"])
+    X_test_lda = generate_lda_features(X_test_lda, n_topics)
 
     X_test = hstack([X_test_tfidf, X_test_hotspot, X_test_lda])
 
