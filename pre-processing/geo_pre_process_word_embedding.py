@@ -123,7 +123,7 @@ def pad_seq_array(seq_arrays,max_length):
         new_arrays.append(new_seq_csr_matrix)
     return new_arrays
 
-def create_dataset(grouped_df,max_length):
+def create_dataset(grouped_df,max_length,avg=False):
     #convert each note to word embedding
     seq_arrays = []
     for idx,note in enumerate(grouped_df['cleaned_text_2'].to_list()):
@@ -133,7 +133,12 @@ def create_dataset(grouped_df,max_length):
     
     #pad it to same max_length x 100 matrix
     padded_seq_arrays=pad_seq_array(seq_arrays,max_length)
+    if avg==True:
+        #truncate to 4000 cover 95% of patient cases
+        truncated_length = 4000
+        padded_seq_arrays=[np.mean(i.toarray()[0:truncated_length],axis=0) for i in padded_seq_arrays]
     del seq_arrays[:]
+
     labels = grouped_df['hf_label'].to_list()
     patient_ids = grouped_df['SUBJECT_ID'].to_list()
     return patient_ids, labels, padded_seq_arrays
@@ -179,22 +184,24 @@ def split_test_train_dataset(positive_data_path,negative_data_path):
 if __name__ == "__main__":
     train_ds,val_ds,test_ds,max_length = split_test_train_dataset(POSTIVE_DATA_PATH,NEGATIVE_DATA_PATH)
     print("train test data set split completed")
-    dataset_name_prefix = 'dataset.lemma_v2'
+    dataset_name_prefix = 'dataset.lemma_avg_v3'
+    #turn to false for the generic word embedding script
+    avg_flag=False
 
-    train_ids, train_labels, train_seqs = create_dataset(train_ds,max_length)
+    train_ids, train_labels, train_seqs = create_dataset(train_ds,max_length,avg_flag)
     pickle.dump(train_ids, open(f"{dataset_name_prefix}.ids.train", 'wb'), pickle.HIGHEST_PROTOCOL)
     pickle.dump(train_labels, open(f"{dataset_name_prefix}.labels.train", 'wb'), pickle.HIGHEST_PROTOCOL)
     pickle.dump(train_seqs, open(f"{dataset_name_prefix}.seqs.train", 'wb'), pickle.HIGHEST_PROTOCOL)
     print("train data set created")
 
-    val_ids, val_labels, val_seqs = create_dataset(val_ds,max_length)
+    val_ids, val_labels, val_seqs = create_dataset(val_ds,max_length,avg_flag)
     pickle.dump(val_ids, open(f"{dataset_name_prefix}.ids.validation", 'wb'), pickle.HIGHEST_PROTOCOL)
     pickle.dump(val_labels, open(f"{dataset_name_prefix}.labels.validation", 'wb'), pickle.HIGHEST_PROTOCOL)
     pickle.dump(val_seqs, open(f"{dataset_name_prefix}.seqs.validation", 'wb'), pickle.HIGHEST_PROTOCOL)
     print("val data set created")
 
 
-    test_ids, test_labels, test_seqs = create_dataset(test_ds,max_length)
+    test_ids, test_labels, test_seqs = create_dataset(test_ds,max_length,avg_flag)
     pickle.dump(test_ids, open(f"{dataset_name_prefix}.ids.test", 'wb'), pickle.HIGHEST_PROTOCOL)
     pickle.dump(test_labels, open(f"{dataset_name_prefix}.labels.test", 'wb'), pickle.HIGHEST_PROTOCOL)
     pickle.dump(test_seqs, open(f"{dataset_name_prefix}.seqs.test", 'wb'), pickle.HIGHEST_PROTOCOL)
