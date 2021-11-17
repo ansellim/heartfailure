@@ -13,8 +13,12 @@ import numpy as np
 import pandas as pd
 import pickle
 from nltk.corpus import stopwords
+from nltk.corpus import wordnet
+from nltk.stem import WordNetLemmatizer
+from collections import Counter 
 import nltk
 nltk.download('stopwords')
+nltk.download('wordnet')
 import re, string
 from sklearn.model_selection import train_test_split
 import scipy
@@ -27,9 +31,12 @@ m1 = KeyedVectors.load(r'C:\Users\JSEAH\CSE6250_Project\pre-processing\fasttext.
 POSTIVE_DATA_PATH  = r'C:\Users\JSEAH\CSE6250_Project\hf_positives.csv'
 NEGATIVE_DATA_PATH = r'C:\Users\JSEAH\CSE6250_Project\hf_negative.csv'
 
+
 #loading the model can take some time
 m2 = fasttext.load_model('cc.en.300.bin')
 fasttext.util.reduce_model(m2, 100)
+
+
 
 def get_vector(word,m1,m2):
     if word in m1.wv.key_to_index:
@@ -58,11 +65,30 @@ def Nchar_filter(text):
     return Value
 
 def remove_non_essential_words(text):
-    non_essential_word_list =['admission date','service','date birth']
+    non_essential_word_list =['admission','date','service','birth','also']
     new_text = re.sub('[0-9]{4}pm','',text) 
     new_text = ' '.join([i for i in new_text.split() if i not in non_essential_word_list])
     return new_text  
 
+wnl = WordNetLemmatizer()
+
+def get_pos( word ):
+    w_synsets = wordnet.synsets(word)
+    pos_counts = Counter()
+    pos_counts["n"] = len(  [ item for item in w_synsets if item.pos()=="n"]  )
+    pos_counts["v"] = len(  [ item for item in w_synsets if item.pos()=="v"]  )
+    pos_counts["a"] = len(  [ item for item in w_synsets if item.pos()=="a"]  )
+    pos_counts["r"] = len(  [ item for item in w_synsets if item.pos()=="r"]  )
+    most_common_pos_list = pos_counts.most_common(3)
+    #print(most_common_pos_list[0][0])
+    return most_common_pos_list[0][0]
+
+def lemmatization(text):
+    return wnl.lemmatize(text,get_pos(text))
+
+def remove_numeric(text):
+    text = re.sub('[^a-zA-Z]', ' ', text)
+    return text
 
 ### next step:
 ### ###
@@ -125,6 +151,9 @@ def split_test_train_dataset(positive_data_path,negative_data_path):
     data['cleaned_text_2'] = data['cleaned_text_2'].apply(stopword_filter)
     data['cleaned_text_2'] = data['cleaned_text_2'].apply(Nchar_filter)
     data['cleaned_text_2'] = data['cleaned_text_2'].apply(remove_non_essential_words)
+    data['cleaned_text_2'] = data['cleaned_text_2'].apply(lemmatization)
+    data['cleaned_text_2'] = data['cleaned_text_2'].apply(remove_numeric)
+
     data = data.sort_values(by=['SUBJECT_ID', 'HADM_ID']).reset_index()
     #group multiple discharge summary into single notes
     grouped_text = data.groupby('SUBJECT_ID')['cleaned_text_2'].apply(lambda x: ','.join(x)).reset_index()
@@ -150,24 +179,25 @@ def split_test_train_dataset(positive_data_path,negative_data_path):
 if __name__ == "__main__":
     train_ds,val_ds,test_ds,max_length = split_test_train_dataset(POSTIVE_DATA_PATH,NEGATIVE_DATA_PATH)
     print("train test data set split completed")
+    dataset_name_prefix = 'dataset.lemma_v2'
 
     train_ids, train_labels, train_seqs = create_dataset(train_ds,max_length)
-    pickle.dump(train_ids, open("dataset.ids.train", 'wb'), pickle.HIGHEST_PROTOCOL)
-    pickle.dump(train_labels, open("dataset.labels.train", 'wb'), pickle.HIGHEST_PROTOCOL)
-    pickle.dump(train_seqs, open("dataset.seqs.train", 'wb'), pickle.HIGHEST_PROTOCOL)
+    pickle.dump(train_ids, open(f"{dataset_name_prefix}.ids.train", 'wb'), pickle.HIGHEST_PROTOCOL)
+    pickle.dump(train_labels, open(f"{dataset_name_prefix}.labels.train", 'wb'), pickle.HIGHEST_PROTOCOL)
+    pickle.dump(train_seqs, open(f"{dataset_name_prefix}.seqs.train", 'wb'), pickle.HIGHEST_PROTOCOL)
     print("train data set created")
 
     val_ids, val_labels, val_seqs = create_dataset(val_ds,max_length)
-    pickle.dump(val_ids, open("dataset.ids.validation", 'wb'), pickle.HIGHEST_PROTOCOL)
-    pickle.dump(val_labels, open("dataset.labels.validation", 'wb'), pickle.HIGHEST_PROTOCOL)
-    pickle.dump(val_seqs, open("dataset.seqs.validation", 'wb'), pickle.HIGHEST_PROTOCOL)
+    pickle.dump(val_ids, open(f"{dataset_name_prefix}.ids.validation", 'wb'), pickle.HIGHEST_PROTOCOL)
+    pickle.dump(val_labels, open(f"{dataset_name_prefix}.labels.validation", 'wb'), pickle.HIGHEST_PROTOCOL)
+    pickle.dump(val_seqs, open(f"{dataset_name_prefix}.seqs.validation", 'wb'), pickle.HIGHEST_PROTOCOL)
     print("val data set created")
 
 
     test_ids, test_labels, test_seqs = create_dataset(test_ds,max_length)
-    pickle.dump(test_ids, open("dataset.ids.test", 'wb'), pickle.HIGHEST_PROTOCOL)
-    pickle.dump(test_labels, open("dataset.labels.test", 'wb'), pickle.HIGHEST_PROTOCOL)
-    pickle.dump(test_seqs, open("dataset.seqs.test", 'wb'), pickle.HIGHEST_PROTOCOL)
+    pickle.dump(test_ids, open(f"{dataset_name_prefix}.ids.test", 'wb'), pickle.HIGHEST_PROTOCOL)
+    pickle.dump(test_labels, open(f"{dataset_name_prefix}.labels.test", 'wb'), pickle.HIGHEST_PROTOCOL)
+    pickle.dump(test_seqs, open(f"{dataset_name_prefix}.seqs.test", 'wb'), pickle.HIGHEST_PROTOCOL)
     print("test data set created")
 
 
