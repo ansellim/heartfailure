@@ -20,7 +20,7 @@ def build_count_vectorizer(all_text):
 ### https://towardsdatascience.com/topic-modeling-and-latent-dirichlet-allocation-in-python-9bf156893c24
 ### https://www.machinelearningplus.com/nlp/topic-modeling-python-sklearn-examples/#7createthedocumentwordmatrix
 
-# build LDA based on tfidf
+# build LDA based on bow
 def generate_lda_features(data, n_topics):
     model = LatentDirichletAllocation(
         n_components = n_topics,

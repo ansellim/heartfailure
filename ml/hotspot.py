@@ -8,7 +8,6 @@ import pandas as pd
 import numpy as np
 
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
 from scipy import sparse
 
 def search_complete_terms(text, hf_terms):
@@ -66,16 +65,11 @@ def get_elapsed_duration(data):
 
     return duration["elapsed"].values[:, np.newaxis]
 
-def min_max_norm(mat):
-    scaler = MinMaxScaler()
-    scaler.fit(mat)
-    return scaler.transform(mat)
-
-def plot_features(full_features):
+def plot_features(full_features, name):
     plt.figure(figsize=(20,15))
     plt.imshow(full_features, interpolation="nearest", aspect="auto")
     plt.colorbar()
-    plt.savefig("Full Features Sparse Matrix.png")
+    plt.savefig(f"{name} Full Features Sparse Matrix.png")
     plt.close()
 
 def compare_features_plot(complete_terms_features, complete_terms_fuzzy_features, modifier_terms_features):
@@ -108,8 +102,7 @@ def generate_hotspot_features(data, hf_terms):
         complete_terms.append(search_complete_terms(text, hf_terms))
 
     complete_terms_features = np.array(complete_terms)
-    full_features = min_max_norm(complete_terms_features)
 
-    return sparse.csr_matrix(full_features)
+    return sparse.csr_matrix(complete_terms_features)
 
     

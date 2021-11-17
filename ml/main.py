@@ -1,12 +1,20 @@
 import pandas as pd
 import xgboost as xgb
+from sklearn.preprocessing import MinMaxScaler
 from feature_engineering import pre_process_text, get_data, build_tfidf_vectorizer
-from hotspot import get_hotspot_feature_names, generate_hotspot_features
+from hotspot import get_hotspot_feature_names, generate_hotspot_features, plot_features
 from lda import build_count_vectorizer, generate_lda_features
-# from word2vec import generate_w2v_features
+from word2vec import generate_w2v_features
 from model import run_xgboost, true_evaluation
 from datetime import datetime
-from scipy.sparse import hstack
+from scipy.sparse import hstack, csr_matrix
+
+def min_max_norm(mat):
+    mat = mat.todense()
+    scaler = MinMaxScaler()
+    scaler.fit(mat)
+    mat = scaler.transform(mat)
+    return csr_matrix(mat)
 
 if __name__ == "__main__":
     start = datetime.now()
@@ -43,17 +51,18 @@ if __name__ == "__main__":
     X_val_lda = generate_lda_features(X_val_lda, n_topics)
 
     # word2vec feature engineering
-    # X_train_w2v = generate_w2v_features(train["text"])
-    # X_val_w2v = generate_w2v_features(val["text"])
+    X_train_w2v, X_val_w2v, X_test_w2v = generate_w2v_features()
 
     # Train XGB model
-    X_train = hstack([X_train_tfidf, X_train_hotspot, X_train_lda])
-    X_val = hstack([X_val_tfidf, X_val_hotspot, X_val_lda])
+    X_train = hstack([X_train_tfidf, X_train_hotspot, X_train_lda, X_train_w2v])
+    X_train = min_max_norm(X_train)
+    X_val = hstack([X_val_tfidf, X_val_hotspot, X_val_lda, X_val_w2v])
+    X_val = min_max_norm(X_val)
 
     y_train = train['y']
     y_val = val['y']
 
-    all_feature_names = tfvocab + hp_feature_names + [f"LDA_{i}" for i in range(n_topics)]
+    all_feature_names = tfvocab + hp_feature_names + [f"LDA_{i}" for i in range(n_topics)] + [f"w2v_{i}" for i in range(100)]
 
     d_train = xgb.DMatrix(X_train, y_train,feature_names=all_feature_names)
     d_val = xgb.DMatrix(X_val,y_val,feature_names=all_feature_names)
@@ -67,12 +76,17 @@ if __name__ == "__main__":
     X_test_lda = bow_vectorizer.transform(test["text"])
     X_test_lda = generate_lda_features(X_test_lda, n_topics)
 
-    X_test = hstack([X_test_tfidf, X_test_hotspot, X_test_lda])
+    X_test = hstack([X_test_tfidf, X_test_hotspot, X_test_lda, X_test_w2v])
+    X_test = min_max_norm(X_test)
 
     y_true = test['y']
 
     d_test = xgb.DMatrix(X_test,feature_names=all_feature_names)
     true_evaluation(model, d_test, y_true)
+
+    plot_features(X_train.todense(), "X_train")
+    plot_features(X_val.todense(), "X_val")
+    plot_features(X_test.todense(), "X_test")
 
     end = datetime.now()
     print(f'Script end: {end}')

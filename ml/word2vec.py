@@ -12,13 +12,13 @@ import scipy
 #this will take 30 min++ to download
 # fasttext.util.download_model('en', if_exists='ignore')  # English
 
-#please download this beforehand
-#Update this portion to your local
-m1 = KeyedVectors.load(r'C:\Users\jolee\Desktop\OMSA\CSE6250\project\CSE6250_Project\word2vec+fastText\FastText\fasttext.model')
+# #please download this beforehand
+# #Update this portion to your local
+# m1 = KeyedVectors.load(r'C:\Users\jolee\Desktop\OMSA\CSE6250\project\CSE6250_Project\word2vec+fastText\FastText\fasttext.model')
 
-#loading the model can take some time
-m2 = fasttext.load_model(r'C:\Users\jolee\Desktop\OMSA\CSE6250\project\CSE6250_Project\cc.en.300.bin')
-fasttext.util.reduce_model(m2, 100)
+# #loading the model can take some time
+# m2 = fasttext.load_model(r'C:\Users\jolee\Desktop\OMSA\CSE6250\project\CSE6250_Project\cc.en.300.bin')
+# fasttext.util.reduce_model(m2, 100)
 
 def get_vector(word,m1,m2):
     if word in m1.wv.key_to_index:
@@ -67,3 +67,13 @@ def generate_w2v_features(text):
     new_data = np.vstack(new_data)
     
     return new_data
+
+def generate_w2v_features():
+    prefix = "../pre-processing/dataset_lemma_avg_v3/"
+
+    w2v_features = []
+    for l in ["train", "validation", "test"]:
+        features = pd.read_pickle(prefix + f"dataset.lemma_avg_v3.seqs.{l}")
+        w2v_features.append(np.array(features))
+    
+    return tuple(w2v_features)
