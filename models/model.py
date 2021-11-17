@@ -24,7 +24,10 @@ class MyVariableRNN(nn.Module):
         h0 = torch.zeros(2, #D* num_layers
                          output.size(0), #batch size
                          16 #hidden size
+                         ,device=input_tuple.device
                          ).requires_grad_()
+
+                         
         output2, _ = self.GRU(output, h0.detach())
         output3 = output2[:,-1,:]
         output4 = self.FC2(output3)

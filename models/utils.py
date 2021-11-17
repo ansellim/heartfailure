@@ -39,7 +39,7 @@ def train(model, device, data_loader, criterion, optimizer, epoch, print_freq=10
 	data_time = AverageMeter()
 	losses = AverageMeter()
 	accuracy = AverageMeter()
-
+	model.to(device)
 	model.train()
 
 	end = time.time()
@@ -69,6 +69,7 @@ def train(model, device, data_loader, criterion, optimizer, epoch, print_freq=10
 		accuracy.update(compute_batch_accuracy(output, target).item(), target.size(0))
 
 		if i % print_freq == 0:
+			print('Train batch size',i,input.shape,target.shape)
 			print('Epoch: [{0}][{1}/{2}]\t'
 				  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
 				  'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
@@ -114,6 +115,7 @@ def evaluate(model, device, data_loader, criterion, print_freq=10):
 			results.extend(list(zip(y_true, y_pred)))
 
 			if i % print_freq == 0:
+				print('Test batch size',i,input.shape,target.shape)
 				print('Test: [{0}/{1}]\t'
 					  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
 					  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'

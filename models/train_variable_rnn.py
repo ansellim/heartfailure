@@ -3,7 +3,7 @@ import pickle
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader,TensorDataset
 import torch.optim as optim
 
 from plots import plot_confusion_matrix,plot_learning_curves
@@ -16,22 +16,27 @@ from sklearn.metrics import roc_auc_score, accuracy_score, precision_score, reca
 
 
 # Set a correct path to the data files that you preprocessed
-PATH_TRAIN_SEQS = "../pre-processing/dataset.seqs.train"
-PATH_TRAIN_LABELS = "../pre-processing/dataset.labels.train"
-PATH_VALID_SEQS =  "../pre-processing/dataset.seqs.validation"
-PATH_VALID_LABELS =  "../pre-processing/dataset.labels.validation"
-PATH_TEST_SEQS = "../pre-processing/dataset.seqs.test"
-PATH_TEST_LABELS = "../pre-processing/dataset.labels.test"
-PATH_TEST_IDS = "../pre-processing/dataset.ids.test"
+PATH_TRAIN_SEQS = "../pre-processing/dataset.lemma_v2.seqs.train"
+PATH_TRAIN_LABELS = "../pre-processing/dataset.lemma_v2.labels.train"
+PATH_VALID_SEQS =  "../pre-processing/dataset.lemma_v2.seqs.validation"
+PATH_VALID_LABELS =  "../pre-processing/dataset.lemma_v2.labels.validation"
+PATH_TEST_SEQS = "../pre-processing/dataset.lemma_v2.seqs.test"
+PATH_TEST_LABELS = "../pre-processing/dataset.lemma_v2.labels.test"
+PATH_TEST_IDS = "../pre-processing/dataset.lemma_v2.ids.test"
 PATH_OUTPUT = "../output/"
 os.makedirs(PATH_OUTPUT, exist_ok=True)
 
-NUM_EPOCHS = 3
-BATCH_SIZE = 32
+
+
+NUM_EPOCHS = 15
+BATCH_SIZE = 64
 USE_CUDA = False  # Set 'True' if you want to use GPU
 NUM_WORKERS = 0
+MAX_LENGTH=2500
 
-device = torch.device("cuda" if torch.cuda.is_available() and USE_CUDA else "cpu")
+device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+print("PARAMETER",device,NUM_EPOCHS,BATCH_SIZE,MAX_LENGTH)
+
 torch.manual_seed(1)
 if device.type == "cuda":
 	torch.backends.cudnn.deterministic = True
@@ -41,22 +46,38 @@ if device.type == "cuda":
 print('===> Loading entire datasets')
 train_seqs = pickle.load(open(PATH_TRAIN_SEQS, 'rb'))
 train_labels = pickle.load(open(PATH_TRAIN_LABELS, 'rb'))
+
+#truncate by max_len
+train_seqs = [i[0:MAX_LENGTH] for i in train_seqs]
+train_labels = train_labels[0:MAX_LENGTH]
+print("train data length",len(train_seqs),train_seqs[0].shape)
+
 valid_seqs = pickle.load(open(PATH_VALID_SEQS, 'rb'))
 valid_labels = pickle.load(open(PATH_VALID_LABELS, 'rb'))
 test_seqs = pickle.load(open(PATH_TEST_SEQS, 'rb'))
 test_labels = pickle.load(open(PATH_TEST_LABELS, 'rb'))
 
+
+#truncate by max_len
+valid_seqs = [i[0:MAX_LENGTH] for i in valid_seqs]
+valid_labels = valid_labels[0:MAX_LENGTH]
+test_seqs = [i[0:MAX_LENGTH] for i in test_seqs]
+test_labels = test_labels[0:MAX_LENGTH]
+
 #print(train_seqs) #myaddition
 
 num_features = 100
 
+# not using ..use standard one
 class MyDataset(torch.utils.data.Dataset):
     def __init__(self,encodings,labels):
         self.encodings = encodings
         self.labels = labels
 
     def __getitem__(self, idx):
-    	return self.encodings[idx].toarray(), self.labels[idx]
+        seqs_arrays = self.encodings[idx].toarray()
+        labels_arrays = self.labels[idx]
+        return seqs_arrays,labels_arrays
 
     def __len__(self):
         return len(self.labels)
@@ -74,7 +95,6 @@ def notes_collate_fn(batch):
 		lengths (LongTensor) - 1D of batch_size
 		labels (LongTensor) - 1D of batch_size
 	"""
-
 	seqs_array = np.array([x[0] for x in batch])
 	labels_array = np.array([x[1] for x in batch])
 
@@ -85,17 +105,36 @@ def notes_collate_fn(batch):
 
 
 #Create Tensor Dataset
+#testing code to use default tensor to load, 
+#but it is not efficient to memory and time since need to load the entiredataset twice
+#train_labels = torch.LongTensor(train_labels)
+#train_seqs = torch.FloatTensor(train_seqs)
+#test_labels = torch.LongTensor(test_labels)
+#test_seqs = torch.FloatTensor(test_seqs)
+#valid_labels = torch.LongTensor(valid_labels)
+#valid_seqs = torch.FloatTensor(valid_seqs)
+#print("Data loaded as Tensor")
+
+#train_dataset = TensorDataset(train_seqs,train_labels)
+#valid_dataset = TensorDataset(valid_seqs,valid_labels)
+#test_dataset = TensorDataset(test_seqs,test_labels)
+
 train_dataset = MyDataset(train_seqs,train_labels)
-valid_dataset = MyDataset(valid_seqs,train_labels)
+valid_dataset = MyDataset(valid_seqs,valid_labels)
 test_dataset = MyDataset(test_seqs,test_labels)
 
+
+
+
 #remove collate function as I already padded the data into same size
-train_loader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, shuffle=True,collate_fn=notes_collate_fn, num_workers=NUM_WORKERS)
-valid_loader = DataLoader(dataset=valid_dataset, batch_size=BATCH_SIZE, shuffle=False,collate_fn=notes_collate_fn, num_workers=NUM_WORKERS)
+#collate_fn = notes_collate_fn
+train_loader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, shuffle=True,collate_fn = notes_collate_fn, num_workers=NUM_WORKERS)
+valid_loader = DataLoader(dataset=valid_dataset, batch_size=BATCH_SIZE, shuffle=False,collate_fn = notes_collate_fn, num_workers=NUM_WORKERS)
 # batch_size for the test set should be 1 to avoid sorting each mini-batch which breaks the connection with patient IDs
-test_loader = DataLoader(dataset=test_dataset, batch_size=1, shuffle=False,collate_fn=notes_collate_fn, num_workers=NUM_WORKERS)
+test_loader = DataLoader(dataset=test_dataset, batch_size=1, shuffle=False,collate_fn = notes_collate_fn, num_workers=NUM_WORKERS)
 
 model = MyVariableRNN(num_features)
+print("Model Parameter ",model)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters())
 
@@ -137,7 +176,7 @@ best_model = torch.load(os.path.join(PATH_OUTPUT, "MyVariableRNN.pth"))
 plot_learning_curves(train_losses, valid_losses, train_accuracies, valid_accuracies)
 
 def compute_metrics(results):
-    y_true = [i[0] for i in results]
+	y_true = [i[0] for i in results]
 	y_pred = [i[1] for i in results]
 	acc = accuracy_score(y_true, y_pred)
 	auc = roc_auc_score(y_true, y_pred)
@@ -165,8 +204,10 @@ def predict_mortality(model, device, data_loader):
 #test_prob = predict_mortality(best_model, device, test_loader)
 
 
-test_loss, test_accuracy, test_results = evaluate(best_model, device, test_loader, criterion)
+test_loss, test_accuracy, test_results = evaluate(best_model, device, test_loader, criterion,print_freq=500)
 plot_confusion_matrix(test_results,['0','1'])
-compute_metrics(test_results)
+metrics = compute_metrics(test_results)
+print(metrics)
 print('test accuracy ',test_accuracy,test_loss)
+print(test_results)
 
