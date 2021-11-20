@@ -3,7 +3,7 @@ import xgboost as xgb
 from sklearn.preprocessing import MinMaxScaler
 from feature_engineering import pre_process_text, get_data, build_tfidf_vectorizer
 from hotspot import get_hotspot_feature_names, generate_hotspot_features, plot_features
-from lda import build_count_vectorizer, generate_lda_features
+from lda import get_bow_vect, generate_lda_features, print_top_words_per_topic
 from word2vec import generate_w2v_features
 from model import run_xgboost, true_evaluation
 from datetime import datetime
@@ -42,13 +42,10 @@ if __name__ == "__main__":
     X_val_hotspot = generate_hotspot_features(val["text"], hf_terms)
 
     # LDA feature engineering from BOW
-    bow_vectorizer = build_count_vectorizer(all_text)
-    X_train_lda = bow_vectorizer.transform(train["text"])
-    X_val_lda = bow_vectorizer.transform(val["text"])
-
     n_topics = 10
-    X_train_lda = generate_lda_features(X_train_lda, n_topics)
-    X_val_lda = generate_lda_features(X_val_lda, n_topics)
+    X_train_lda, X_val_lda, bow_vectorizer = get_bow_vect(train["text"], val["text"])
+    X_train_lda, X_val_lda, lda_model = generate_lda_features(X_train_lda, X_val_lda, n_topics)
+    all_top_20 = print_top_words_per_topic(lda_model, bow_vectorizer.get_feature_names())
 
     # word2vec feature engineering
     X_train_w2v, X_val_w2v, X_test_w2v = generate_w2v_features()
@@ -74,7 +71,7 @@ if __name__ == "__main__":
     X_test_hotspot = generate_hotspot_features(test["text"], hf_terms)
     
     X_test_lda = bow_vectorizer.transform(test["text"])
-    X_test_lda = generate_lda_features(X_test_lda, n_topics)
+    X_test_lda = lda_model.transform(X_test_lda)
 
     X_test = hstack([X_test_tfidf, X_test_hotspot, X_test_lda, X_test_w2v])
     X_test = min_max_norm(X_test)
