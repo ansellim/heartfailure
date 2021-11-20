@@ -8,6 +8,7 @@ from word2vec import generate_w2v_features
 from model import run_xgboost, true_evaluation
 from datetime import datetime
 from scipy.sparse import hstack, csr_matrix
+from svm_classifier import run_svm
 
 def min_max_norm(mat):
     mat = mat.todense()
@@ -64,7 +65,7 @@ if __name__ == "__main__":
     d_train = xgb.DMatrix(X_train, y_train,feature_names=all_feature_names)
     d_val = xgb.DMatrix(X_val,y_val,feature_names=all_feature_names)
 
-    model = run_xgboost(d_train,d_val)
+    xgboost_model = run_xgboost(d_train,d_val)
 
     # Run true evaluation on out-of-sample (test) set
     X_test_tfidf = tfidf_vectorizer.transform(test['text'])
@@ -79,7 +80,9 @@ if __name__ == "__main__":
     y_true = test['y']
 
     d_test = xgb.DMatrix(X_test,feature_names=all_feature_names)
-    true_evaluation(model, d_test, y_true)
+    true_evaluation(xgboost_model, d_test, y_true)
+
+    svm_model = run_svm(X_train, y_train, X_val, y_val, X_test, y_true)
 
     plot_features(X_train.todense(), "X_train")
     plot_features(X_val.todense(), "X_val")

@@ -49,11 +49,13 @@ def generate_lda_features(X_train_lda, X_val_lda, n_topics):
 def print_top_words_per_topic(model, feature_names):
 
     all_top_20_words = []
+    print("\n\n\n----------Evaluation Metrics---------\n")
     for i, topic in enumerate(model.components_):
         words_wgt = list(zip(feature_names, topic))
         top_20_important = sorted(words_wgt, key=lambda x: x[1], reverse = True)[:20]
         top_20_important = [x for x,y in top_20_important]
-        print(f"LDA_{i}:\n{' '.join(top_20_important)}\n")
+        print(f"LDA_{i}:\n{' '.join(top_20_important)}")
         all_top_20_words.append(top_20_important)
+    print("\n")
 
     return all_top_20_words
