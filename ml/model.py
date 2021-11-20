@@ -3,7 +3,7 @@ from xgboost.core import DMatrix
 from xgboost.sklearn import XGBClassifier
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, auc, roc_curve, accuracy_score
 
 def run_xgboost(d_train:DMatrix, d_val:DMatrix) -> XGBClassifier:
     """
@@ -58,3 +58,7 @@ def true_evaluation(model:XGBClassifier, d_test:DMatrix, y_true:pd.Series):
     # Print confusion matrix
     print('\n----------Confusion Matrix---------')
     print(confusion_matrix(y_true, y_pred))
+
+    print('\n----------Evaluation Metrics---------')
+    fpr, tpr, thresholds = roc_curve(y_true, y_pred)
+    print(f'Accuracy: {accuracy_score(y_true,y_pred)} | AUC:{auc(fpr, tpr)}')
