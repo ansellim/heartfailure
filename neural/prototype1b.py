@@ -38,10 +38,10 @@ Details: https://huggingface.co/bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024
 '''
 
 model_name = "bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16"
-batch_size=4 # if model/data doesn't fit within GPU memory constraints, will need to try different batch sizes
+batch_size = 8 # if model/data doesn't fit within GPU memory constraints, will need to try different batch sizes
 num_labels=2
 max_length =512
-num_epochs = 5
+num_epochs = 3
 
 # Specify where to save the model
 destination_path = "./models/prototype1b_bluebert"
