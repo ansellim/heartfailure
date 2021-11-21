@@ -109,14 +109,14 @@ test_set = HeartFailureDataset(test)
 def collate_fn(batch):
     texts, labels = [], []
     for text,label in batch:
-        texts.append(tokenizer.encode(text,max_length = max_seq_length,padding=True,truncation=True, return_tensors=None))
+        texts.append(tokenizer.encode(text,max_length = max_seq_length,padding='max_length',truncation=True, return_tensors=None))
         labels.append(label)
     texts = torch.LongTensor(texts)
     labels = torch.LongTensor(labels)
     return texts,labels
 
 train_loader = DataLoader(train_set, batch_size=8, shuffle=True, collate_fn=collate_fn)
-val_loader = DataLoader(train_set, batch_size=8, shuffle=True, collate_fn=collate_fn)
+val_loader = DataLoader(val_set, batch_size=8, shuffle=True, collate_fn=collate_fn)
 test_loader = DataLoader(test_set,batch_size = 8, shuffle=False,collate_fn = collate_fn)
 
 # Define model
@@ -126,7 +126,7 @@ class BerniceClassifier(nn.Module):
     def __init__(self):
         super(BerniceClassifier,self).__init__()
         self.bert = bert_model
-        self.layer = nn.Sequential(nn.Dropout(p=0.5),nn.Linear(1024,256),nn.ReLU(),nn.Dropout(p=0.5),nn.Linear(128,16),nn.ReLU(),nn.Linear(16,2))
+        self.layer = nn.Sequential(nn.Dropout(p=0.5),nn.Linear(1024,256),nn.ReLU(),nn.Dropout(p=0.5),nn.Linear(256,16),nn.ReLU(),nn.Linear(16,2))
 
     def forward(self,x):
         # x = torch.LongTensor(x)
