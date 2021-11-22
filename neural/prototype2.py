@@ -3,6 +3,7 @@
 
 # The boring stuff...import dependencies, set random seeds for reproducibility, etc.
 
+import time
 import random
 import numpy as np
 import pandas as pd
@@ -15,29 +16,32 @@ import spacy
 from sklearn.feature_extraction.text import TfidfVectorizer
 from torchtext.legacy.data import Field,TabularDataset,BucketIterator
 
+# Set random seeds for reproducibility's sake.
+
 random.seed(42)
 np.random.seed(42)
 torch.manual_seed(42)
 torch.backends.cudnn.deterministic = True
 
+# Torch Device will be CUDA if available, otherwise CPU.
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
-# Specify Huggingface model name
+# Specify Huggingface model name (for example, "bert-base-uncased"
 model_name = "bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16"
 
-# Tokenizer
+# Get Tokenizer from Huggingface
 tokenizer = BertTokenizer.from_pretrained(model_name)
 
-# Model
+# Get model from Huggingface
 bert_model = BertModel.from_pretrained(model_name)
 
-# Set tokenizer's hyperparameters
-batch_size = 16
-max_seq_length = 512
+# Set tokenizer's 'hyperparameters'
+seq_length = 400 # All sequences will be padded/truncated to this sequence length
 
 # Model specifications / hyperparameters / training settings
 num_epochs = 3
-num_class =2
+num_class = 2
+batch_size = 8
 
 # Specify where to save the model later
 destination_path = "./models/prototype"
@@ -49,7 +53,7 @@ test = pd.read_csv("./datasets/test.csv")
 
 ### Preprocessing
 
-# Add vocabulary
+# Start of "Add vocabulary" section -- Add tokens to the tokenizer's vocabulary.
 # https://medium.com/@pierre_guillou/nlp-how-to-add-a-domain-specific-vocabulary-new-tokens-to-a-subword-tokenizer-already-trained-33ab15613a41
 
 nlp = spacy.load("en_core_web_sm", exclude=['morphologizer', 'parser', 'ner', 'attribute_ruler', 'lemmatizer'])
@@ -65,6 +69,7 @@ def spacy_tokenizer(document, nlp=nlp):
         token.text.strip() != '' and \
         token.text.find("\n") == -1)]
     return tokens
+
 tfidf_vectorizer = TfidfVectorizer(lowercase=False, tokenizer=spacy_tokenizer, norm='l2', use_idf=True, smooth_idf=True, sublinear_tf=False)
 documents = train['text']
 length = len(documents)
@@ -88,7 +93,8 @@ print("Vocab size",vocab_size)
 
 # End of "Add vocabulary" code section
 
-# Create torch datasets
+# Create torch datasets from train, val, and test
+
 class HeartFailureDataset(torch.utils.data.Dataset):
     def __init__(self, dataframe):
         self.dataframe = dataframe
@@ -106,20 +112,23 @@ train_set = HeartFailureDataset(train)
 val_set = HeartFailureDataset(val)
 test_set = HeartFailureDataset(test)
 
+# Define collate function that will be applied to each batch in the DataLoader
+
 def collate_fn(batch):
     texts, labels = [], []
     for text,label in batch:
-        texts.append(tokenizer.encode(text,max_length = max_seq_length,padding='max_length',truncation=True, return_tensors=None))
+        texts.append(tokenizer.encode(text,max_length = seq_length,padding='max_length',truncation=True, return_tensors=None))
         labels.append(label)
     texts = torch.LongTensor(texts)
     labels = torch.LongTensor(labels)
     return texts,labels
 
-train_loader = DataLoader(train_set, batch_size=8, shuffle=True, collate_fn=collate_fn)
-val_loader = DataLoader(val_set, batch_size=8, shuffle=True, collate_fn=collate_fn)
-test_loader = DataLoader(test_set,batch_size = 8, shuffle=False,collate_fn = collate_fn)
+# Create PyTorch DataLoader objects
 
-# Define model
+train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+test_loader = DataLoader(test_set,batch_size=batch_size, shuffle=False,collate_fn = collate_fn)
+
 # Define neural network architecture
 
 class BerniceClassifier(nn.Module):
@@ -136,16 +145,17 @@ class BerniceClassifier(nn.Module):
 
         return output
 
+# Instantiate neural network object
+
 bernice = BerniceClassifier()
 
-# NN-related
+# Define loss function, optimizer, learning rate scheduler.
 learning_rate = 5
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(bernice.parameters(),lr = learning_rate)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1.0, gamma=0.1)
 
 # Functions to train the model and evaluate results (https://pytorch.org/tutorials/beginner/text_sentiment_ngrams_tutorial.html)
-import time
 def train(dataloader, model=bernice, num_epochs=5):
     model.train()
     total_acc, total_count = 0, 0
@@ -167,6 +177,8 @@ def train(dataloader, model=bernice, num_epochs=5):
                                               total_acc/total_count))
             total_acc, total_count = 0, 0
             start_time = time.time()
+
+# Evaluate function
 def evaluate(dataloader,model=bernice):
     model.eval()
     total_acc, total_count = 0, 0
@@ -187,12 +199,12 @@ for epoch in range(num_epochs):
         scheduler.step()
     else:
         total_accu = accu_val
-    print('-' * 59)
+    print('-' * 50)
     print('| end of epoch {:3d} | time: {:5.2f}s | '
-          'valid accuracy {:8.3f} '.format(epoch,
+          'validation accuracy {:8.3f} '.format(epoch,
                                            time.time() - epoch_start_time,
                                            accu_val))
-    print('-' * 59)
+    print('-' * 50)
 
 # Evaluate on test set
 print('Checking the results of test dataset.')
