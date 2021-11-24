@@ -1,18 +1,26 @@
+
 # Ansel Lim
-# updated 23 Nov 2021 151am
+# updated 24 Nov 2021 2am --> 9am
 
 '''
-############ NON-EXHAUSTIVE LIST OF REFERENCES #############
+############ NON-EXHAUSTIVE LIST OF REFERENCES that may help with understanding the code#############
+I acknowledge the use of these references. Some of the code here is based on the code available at these websites, and I do not make any false representations regarding attributions.
 https://skimai.com/fine-tuning-bert-for-sentiment-analysis/
 https://pytorch.org/tutorials/beginner/text_sentiment_ngrams_tutorial.html
+https://medium.com/@pierre_guillou/nlp-how-to-add-a-domain-specific-vocabulary-new-tokens-to-a-subword-tokenizer-already-trained-33ab15613a41
 '''
 
-# I suggest you run the code using the conda environment specified in the environment.yml file
+############ HOW TO RUN THE CODE #################
+# I suggest you run the code using the conda environment(s) I have specified.
+# The environment.yml file was generated on my Mac. 
+# The environment_linux.yml file was generated on ubuntu running on Windows, and I think this may be a better choice for Linux-based environments.
+# Either create a conda environment from the environment.yml file, or update your conda environment to have the same packages.
 
 ###################################################################################################
 #######################################IMPORT DEPENDENCIES#########################################
 ###################################################################################################
 
+import copy
 import random
 import time
 import matplotlib.pyplot as plt
@@ -20,10 +28,17 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
+import nltk
 from nltk import word_tokenize,sent_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
 from torch.utils.data import DataLoader
 from transformers import BertTokenizer, BertModel
+#import nlpaug
+
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt')
 
 # Keep track of when the script started
 script_start = time.time()
@@ -42,7 +57,7 @@ device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("
 ###################################################################################################
 
 # If prototyping, then code runs only with a fraction of the dataset, otherwise we run the entire script with the full dataset.
-prototyping = True # change to False if you want to run with full dataset
+prototyping = True # change to False if you want to run with full dataset (processing time may be long!)
 
 # Specify the multiplier for Preprocessing Part 3: this is the number of new documents created by shuffling each document in the train set
 MULTIPLIER = 30
@@ -50,23 +65,20 @@ MULTIPLIER = 30
 # Specify Huggingface model name (for example, "bert-base-uncased" or "bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16"
 model_name = "bert-base-uncased"
 
-# All sequences will be padded or truncated to SEQ_LENGTH
+# All sequences will be padded or truncated to SEQ_LENGTH. Note that the max seq length for BERT & BERT-based models is 512.
 SEQ_LENGTH = 512
 
 # Model specifications / hyperparameters / training settings
 NUM_EPOCHS = 3 # can try 2-4
 BATCH_SIZE = 8 # adjust according to memory constraints
-LEARNING_RATE = 5e-5 # can try 2e-5, 3e-5, 4e-5, 5e-5
+LEARNING_RATE = 5e-5 # can try 2e-5, 3e-5, 4e-5, 5e-5 (note that by default we are using Adam optimizer)
 
-# Use a Bert Tokenizer
+# Specify a tokenizer. We'll use a BertTokenizer object from Huggingface.
 tokenizer = BertTokenizer.from_pretrained(model_name)
 
-# Get a base model from Huggingface. We'll use a BERT or BERT-based model.
+# Get an NLP deep learning model from Huggingface that we'll incorporate into our neural network as a "base model". We'll use a BERT or BERT-based model.
 # We will use BertModel class rather than BertForSequenceClassification, so that we have more room for network customization for our task.
 base_model = BertModel.from_pretrained(model_name)
-
-# Specify where to save the model later
-destination_path = "./models/prototype"
 
 ###################################################################################################
 #########################IMPORT DATA & DEEP LEARNING-SPECIFIC PREPROCESSING########################
@@ -74,7 +86,8 @@ destination_path = "./models/prototype"
 
 '''
 Load data. The data has already been processed in the common preprocessing pipeline. 
-In particular, note that stopword removal, lemmatization, and case conversion have already been performed as part of the common pipeline of preprocessing prior to ML/DL models.
+In particular, note that stopword removal (a very limited set of stopwords from NLTK), lemmatization, and case conversion have already been performed as part of the common pipeline of preprocessing prior to ML/DL models.
+Therefore, in this script, we will not need to repeat lemmatization or perform any stopword removal.
 '''
 train = pd.read_csv("./datasets/train.csv")[['text', 'label']]
 val = pd.read_csv("./datasets/val.csv")[['text', 'label']]
@@ -89,7 +102,7 @@ train_texts = train['text']
 num_train_texts = len(train_texts)
 
 '''
-Preprocessing Part 1: Remove excessively common words from the train set.
+Preprocessing Part 1: Remove excessively common words from the train set. These may be thought of as corpus-specific 'stopwords' which are non-informative since they are exceedingly common in the corpus.
 I arbitrarily remove tokens which are present in more than 70% of train documents, as well as tokens that appear in less than 10% of train documents.
 '''
 
@@ -132,17 +145,24 @@ ax[1].hist(lengths_shortened_texts_without_outliers)
 ax[1].set_title("Lengths of train texts after shortening")
 ax[1].set_xlim([0, max(lengths_original_texts_without_outliers)])
 plt.tight_layout()
-plt.show()
+plt.savefig("./models/shortening.png")
 
 train.drop(columns={'text'},inplace=True)
 train.rename(columns={'shortened_text':'text'},inplace=True)
 
 checkpoint1 = time.time()
 
+
+'''
+Preprocessing Part 1B: random synonym replacement
+'''
+
+#PLACEHOLDER TEXT
+
+
 '''
 Preprocessing Part 2: Modify tokenizer -- Add tokens to the tokenizer (fine-tune the tokenizer so that it's updated on the custom dataset). 
-Reference: https://medium.com/@pierre_guillou/nlp-how-to-add-a-domain-specific-vocabulary-new-tokens-to-a-subword-tokenizer-already-trained-33ab15613a41 
-
+The idea is that the tokenizer we imported is trained on other datasets, so it may not have domain-specific tokens. Adding domain-specific or corpus-specific tokens may boost performance. 
 Add only new tokens from train dataset which are in the bottom 70th percentile by inverse document frequency (that is, the commonest 70% of tokens). Note that this is done after preprocessing Part 1, so we are already operating on a smaller set of possible tokens.
 '''
 
@@ -172,6 +192,7 @@ checkpoint2 = time.time()
 
 '''
 Preprocessing Part 3: Shuffle the order of sentences (data augmentation) in the train set.
+The idea is that NLP deep learning models such as BERT have a maximal sequence length, however many of our documents are of substantial length.
 '''
 
 print("Shape of train set prior to shuffling of sentence order",train.shape)
@@ -365,12 +386,17 @@ for epoch in range(NUM_EPOCHS):
     train(train_loader, model=model, log_interval=1)
     accu_val = evaluate(val_loader, model = model)
     if total_accu is not None and total_accu > accu_val:
+        best_state_dict = copy.deepcopy(model.state_dict())
         scheduler.step()
     else:
         total_accu = accu_val
     print('-' * 50)
     print('| end of epoch {:3d} | time: {:5.2f}s | validation accuracy {:8.3f} '.format(epoch,time.time() - epoch_start_time,accu_val))
     print('-' * 50)
+
+model.load_state_dict(best_state_dict)
+torch.save(model,"./models/" + model_name + ".pth")
+torch.save(model.state_dict(), "./models/" + model_name + "_state_dict.pth")
 
 # Evaluate on test set
 print('Checking the results of test dataset.')
