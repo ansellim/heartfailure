@@ -34,6 +34,14 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from torch.utils.data import DataLoader
 from transformers import BertTokenizer, BertModel
 #import nlpaug
+nltk.download('stopwords')
+nltk.download('wordnet')
+from nltk.stem import WordNetLemmatizer
+from collections import Counter 
+from nltk.corpus import stopwords
+from nltk.corpus import wordnet
+import re, string
+
 
 try:
     nltk.data.find('tokenizers/punkt')
@@ -93,6 +101,85 @@ train = pd.read_csv("./datasets/train.csv")[['text', 'label']]
 val = pd.read_csv("./datasets/val.csv")[['text', 'label']]
 test = pd.read_csv("./datasets/test.csv")[['text', 'label']]
 
+
+'''
+Basic NLP pre-processing - george add
+'''
+def remove_punctuations(text):
+    # remove punctuation and enter
+    new_text = re.sub('[%s]' % re.escape(string.punctuation), '', text)
+    new_text = new_text.replace('\n', ' ')
+    return new_text
+
+def lower_case(text):
+    return text.lower()
+
+def stopword_filter(text):
+    stop = stopwords.words('english')
+    return ' '.join([word for word in text.split() if word not in (stop)])
+                    
+def Nchar_filter(text):
+    Value = ' '.join([i for i in text.split() if len(i) >= 3])
+    return Value
+
+def remove_non_essential_words(text):
+    non_essential_word_list =['admission','date','service','birth','also','sex']
+    new_text = re.sub('[0-9]{4}pm','',text) 
+    new_text = ' '.join([i for i in new_text.split() if i not in non_essential_word_list])
+    return new_text  
+
+# from clinical bert pre-processing
+def clinical_bert_preprocessing(x):
+    y=re.sub('\\[(.*?)\\]','',x) #remove de-identified brackets
+    y=re.sub('[0-9]+\.','',y) #remove 1.2. since the segmenter segments based on this
+    y=re.sub('dr\.','doctor',y)
+    y=re.sub('m\.d\.','md',y)
+    y=re.sub('admission date:','',y)
+    y=re.sub('discharge date:','',y)
+    y=re.sub('--|__|==','',y)
+    y = re.sub(r'[^\x00-\x7F]+', ' ', y)
+    return y
+
+
+wnl = WordNetLemmatizer()
+
+def get_pos( word ):
+    w_synsets = wordnet.synsets(word)
+    pos_counts = Counter()
+    pos_counts["n"] = len(  [ item for item in w_synsets if item.pos()=="n"]  )
+    pos_counts["v"] = len(  [ item for item in w_synsets if item.pos()=="v"]  )
+    pos_counts["a"] = len(  [ item for item in w_synsets if item.pos()=="a"]  )
+    pos_counts["r"] = len(  [ item for item in w_synsets if item.pos()=="r"]  )
+    most_common_pos_list = pos_counts.most_common(3)
+    #print(most_common_pos_list[0][0])
+    return most_common_pos_list[0][0]
+
+def lemmatization(text):
+    return wnl.lemmatize(text,get_pos(text))
+
+def remove_numeric(text):
+    text = re.sub('[^a-zA-Z]', ' ', text)
+    return text
+
+def apply_basic_preprocessing(data_df):
+    data_df['text'] = data_df['text'].apply(remove_punctuations)
+    data_df['text'] = data_df['text'].apply(lower_case)
+    data_df['text'] = data_df['text'].apply(clinical_bert_preprocessing)
+    data_df['text'] = data_df['text'].apply(stopword_filter)
+    data_df['text'] = data_df['text'].apply(Nchar_filter)
+    data_df['text'] = data_df['text'].apply(remove_non_essential_words)
+    data_df['text'] = data_df['text'].apply(lemmatization)
+    data_df['text'] = data_df['text'].apply(remove_numeric)
+    return data_df
+
+train = apply_basic_preprocessing(train)
+val = apply_basic_preprocessing(val)
+test = apply_basic_preprocessing(test)
+
+'''
+continue Ansel's code
+'''
+
 if prototyping:
     train = train.iloc[:30,:]
     val = val.iloc[:30,:]
@@ -100,6 +187,9 @@ if prototyping:
 
 train_texts = train['text']
 num_train_texts = len(train_texts)
+
+
+
 
 '''
 Preprocessing Part 1: Remove excessively common words from the train set. These may be thought of as corpus-specific 'stopwords' which are non-informative since they are exceedingly common in the corpus.
