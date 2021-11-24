@@ -57,7 +57,7 @@ device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("
 ###################################################################################################
 
 # If prototyping, then code runs only with a fraction of the dataset, otherwise we run the entire script with the full dataset.
-prototyping = True # change to False if you want to run with full dataset (processing time may be long!)
+prototyping = False # change to False if you want to run with full dataset (processing time may be long!)
 
 # Specify the multiplier for Preprocessing Part 3: this is the number of new documents created by shuffling each document in the train set
 MULTIPLIER = 30
@@ -181,12 +181,15 @@ for token, idf in zip(tokens_by_idf, idf_sorted):
 
 print("Tokenizer vocab size, before adding tokens", len(tokenizer))
 
-tokenizer.add_tokens(new_tokens)
+tokenizer.add_tokens(new_tokens,special_tokens=True)
 
 print("Tokenizer vocab size, after adding tokens", len(tokenizer))
 
 # Resize the dictionary size of the embedding layer
 base_model.resize_token_embeddings(len(tokenizer))
+
+# Save tokenizer for reuse
+tokenizer.save_pretrained("./models/")
 
 checkpoint2 = time.time()
 
