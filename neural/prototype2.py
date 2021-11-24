@@ -107,7 +107,6 @@ Basic NLP pre-processing - george add
 '''
 def remove_punctuations(text):
     # remove punctuation and enter
-    # keep full stop so that it works for shuffling text, remove rest of the other punctuations
     new_text = re.sub('[!"\\#\\$%\\&\'\\(\\)\\*\\+,\\-/:;<=>\\?@\\[\\\\\\]\\^_`\\{\\|\\}\\~]','',text)
     new_text = new_text.replace('\n', ' ')
     return new_text
@@ -128,19 +127,6 @@ def remove_non_essential_words(text):
     new_text = re.sub('[0-9]{4}pm','',text) 
     new_text = ' '.join([i for i in new_text.split() if i not in non_essential_word_list])
     return new_text  
-
-# from clinical bert pre-processing
-def clinical_bert_preprocessing(x):
-    y=re.sub('\\[(.*?)\\]','',x) #remove de-identified brackets
-    y=re.sub('[0-9]+\.','',y) #remove 1.2. since the segmenter segments based on this
-    y=re.sub('dr\.','doctor',y)
-    y=re.sub('m\.d\.','md',y)
-    y=re.sub('admission date:','',y)
-    y=re.sub('discharge date:','',y)
-    y=re.sub('--|__|==','',y)
-    y = re.sub(r'[^\x00-\x7F]+', ' ', y)
-    return y
-
 
 wnl = WordNetLemmatizer()
 
@@ -163,20 +149,34 @@ def remove_numeric(text):
     return text
 
 def apply_basic_preprocessing(data_df):
-    data_df['text'] = data_df['text'].apply(remove_punctuations)  # 
-    data_df['text'] = data_df['text'].apply(lower_case)
-    data_df['text'] = data_df['text'].apply(clinical_bert_preprocessing)
-    data_df['text'] = data_df['text'].apply(stopword_filter)
-    data_df['text'] = data_df['text'].apply(Nchar_filter)
-    data_df['text'] = data_df['text'].apply(remove_non_essential_words)
-    data_df['text'] = data_df['text'].apply(lemmatization)
-    data_df['text'] = data_df['text'].apply(remove_numeric)
-    return data_df
+    _int_data_df = data_df.copy()
+    _int_data_df['text'] = _int_data_df['text'].apply(lower_case)
+    _int_data_df['text'] = _int_data_df['text'].apply(clinical_bert_preprocessing)
+    _int_data_df['text'] = _int_data_df['text'].apply(stopword_filter)
+    _int_data_df['text'] = _int_data_df['text'].apply(Nchar_filter)
+    _int_data_df['text'] = _int_data_df['text'].apply(remove_non_essential_words)
+    _int_data_df['text'] = _int_data_df['text'].apply(lemmatization)
+    _int_data_df['text'] = _int_data_df['text'].apply(remove_numeric)
+    _int_data_df['text'] = _int_data_df['text'].apply(remove_punctuations)
+    return _int_data_df
+
+def clinical_bert_preprocessing(x):
+    y=re.sub('\\[(.*?)\\]','',x) #remove de-identified brackets
+    y=re.sub('[0-9]+\.','',y) #remove 1.2. since the segmenter segments based on this
+    y=re.sub('dr\.','doctor',y)
+    y=re.sub('m\.d\.','md',y)
+    y=re.sub('admission date:','',y)
+    y=re.sub('discharge date:','',y)
+    y=re.sub('--|__|==','',y)
+    y = re.sub(r'[^\x00-\x7F]+', ' ', y)
+    return y
+
 
 train = apply_basic_preprocessing(train)
 val = apply_basic_preprocessing(val)
 test = apply_basic_preprocessing(test)
 
+print("==== completed basic pre-processing ")
 '''
 continue Ansel's code
 '''
