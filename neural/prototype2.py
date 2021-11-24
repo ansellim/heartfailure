@@ -107,7 +107,8 @@ Basic NLP pre-processing - george add
 '''
 def remove_punctuations(text):
     # remove punctuation and enter
-    new_text = re.sub('[%s]' % re.escape(string.punctuation), '', text)
+    # keep full stop so that it works for shuffling text, remove rest of the other punctuations
+    new_text = re.sub('[!"\\#\\$%\\&\'\\(\\)\\*\\+,\\-/:;<=>\\?@\\[\\\\\\]\\^_`\\{\\|\\}\\~]','',text)
     new_text = new_text.replace('\n', ' ')
     return new_text
 
@@ -162,7 +163,7 @@ def remove_numeric(text):
     return text
 
 def apply_basic_preprocessing(data_df):
-    data_df['text'] = data_df['text'].apply(remove_punctuations)
+    data_df['text'] = data_df['text'].apply(remove_punctuations)  # 
     data_df['text'] = data_df['text'].apply(lower_case)
     data_df['text'] = data_df['text'].apply(clinical_bert_preprocessing)
     data_df['text'] = data_df['text'].apply(stopword_filter)
