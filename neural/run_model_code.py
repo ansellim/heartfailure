@@ -2,7 +2,7 @@
 
 import os
 from getpass import getpass
-import urllib
+import urllib.parse
 import shutil
 
 user = input('User name: ') # Enter georgia tech username
