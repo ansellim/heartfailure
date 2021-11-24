@@ -159,7 +159,7 @@ def lemmatization(text):
     return wnl.lemmatize(text,get_pos(text))
 
 def remove_numeric(text):
-    text = re.sub('[^a-zA-Z]', ' ', text)
+    text = re.sub('[0-9]', ' ', text)
     return text
 
 def apply_basic_preprocessing(data_df):
