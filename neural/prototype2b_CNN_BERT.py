@@ -41,6 +41,8 @@ from nltk.corpus import stopwords
 from nltk.corpus import wordnet
 import re
 from sklearn.metrics import roc_auc_score, accuracy_score, precision_score, recall_score, f1_score
+import torch.nn.functional as F
+
 
 #import nlpaug
 
@@ -404,19 +406,43 @@ checkpoint5 = time.time()
 class Network(nn.Module):
     def __init__(self,freeze_base_model=True):
         super(Network, self).__init__()
-        self.base = base_model
-        self.clf = nn.Sequential(nn.Dropout(p=0.5),
-                                 nn.Linear(768, 256), nn.ReLU(),
-                                 nn.Dropout(p=0.2),
-                                 nn.Linear(256, 16), nn.ReLU(),
-                                 nn.Linear(16, 2))
+        self.base = base_model  #output is [batch_size,512,768] 512 is the max sequence length
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=6, kernel_size=(5,5)) 
+        self.conv2 = nn.Conv2d(in_channels=6, out_channels=16, kernel_size=(5,5)) 
+        self.conv3 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=(5,5)) 
+        self.pool = nn.MaxPool2d(kernel_size=(2,2))
+        self.fc1 = nn.Linear(in_features= 176640, out_features=256) #in_features --> 32*60*92
+        self.fc2 = nn.Linear(in_features= 256, out_features=16) 
+        self.fc3= nn.Linear(16, 2)
+
+        # self.clf = nn.Sequential(nn.Dropout(p=0.5),
+        #                         nn.Linear(768, 256), nn.ReLU(),
+        #                         nn.Dropout(p=0.2),
+        #                         nn.Linear(256, 16), nn.ReLU(),
+        #                         nn.Linear(16, 2))
         if freeze_base_model:
             for param in self.base.parameters():
-                param.requires_grad = False
+                param.requires_grad = False 
+
     def forward(self, inputs, masks):
-        outputs = self.base(input_ids = inputs, attention_mask = masks)
-        final_hidden_state = outputs[0][:,0,:]
-        logits = self.clf(final_hidden_state)
+        outputs = self.base(input_ids = inputs, attention_mask = masks)  #output is (8,512,768)
+        #final_hidden_state = outputs[0][:,0,:]
+        print("=== inside forward ",BATCH_SIZE,1,SEQ_LENGTH,self.base.config.hidden_size,outputs[0].shape)
+        final_hidden_state=outputs[0].reshape(BATCH_SIZE,1,SEQ_LENGTH,self.base.config.hidden_size) #reshape to (8,1,512,768)
+        #print(final_hidden_state.shape)
+        out2 = self.pool(F.relu(self.conv1(final_hidden_state)))
+        # print("===After 1st conv layer", out2.shape)
+        out2 = self.pool(F.relu(self.conv2(out2)))
+        # print("===After 2nd conv layer", out2.shape)
+        out2 = self.pool(F.relu(self.conv3(out2)))
+        # print("===After 3rd conv layer", out2.shape)
+        out2 = torch.flatten(out2, 1)
+        out2 = F.dropout(out2,p=0.5)          #dropout 0.5
+        out2 = F.relu(self.fc1(out2))   #nn.Linear(xx, 256), nn.ReLU()
+        out2 = F.dropout(out2,p=0.2)          #dropout 0.2
+        out2 = F.relu(self.fc2(out2))   #n.Linear(256, 16), nn.ReLU(),
+        logits = self.fc3(out2)             #nn.Linear(16, 2))
+        #logits = self.clf(out2)
         return logits
 
 ###################################################################################################
@@ -473,23 +499,27 @@ def evaluate(dataloader, model):
             total_acc += (predicted_labels.argmax(1) == labels).sum().item()
             total_count += labels.size(0)
             #store the y_true,y_pred to calculate metrics
-            results.extend(list(zip(labels, predicted_labels)))
+            y_true = labels.detach().to('cpu').numpy().tolist()
+            y_pred = predicted_labels.detach().to('cpu').max(1)[1].numpy().tolist()
+            results.extend(list(zip(y_true, y_pred)))
 
     return total_acc / total_count, results
 
 print("=== start training")
 
 # Training loop
+total_accu = 0.0
 for epoch in range(NUM_EPOCHS):
-    total_accu = None
+
     epoch_start_time = time.time()
     train(train_loader, model=model, log_interval=1)
     accu_val,_ = evaluate(val_loader, model = model)
-    if total_accu is not None and total_accu > accu_val:
+    if accu_val>total_accu or total_accu==0.0:
         best_state_dict = copy.deepcopy(model.state_dict())
-        scheduler.step()
-    else:
         total_accu = accu_val
+        scheduler.step()
+    #else:
+    #    total_accu = accu_val
     print('-' * 50)
     print('| end of epoch {:3d} | time: {:5.2f}s | validation accuracy {:8.3f} '.format(epoch,time.time() - epoch_start_time,accu_val))
     print('-' * 50)
@@ -499,7 +529,7 @@ torch.save(model,"./models/" + model_name + ".pth")
 torch.save(model.state_dict(), "./models/" + model_name + "_state_dict.pth")
 
 def compute_metrics(results):
-    y_true = [i[0] for i in results]
+    y_true = [i[0][0] for i in results]
     y_pred = [i[1] for i in results]
     acc = accuracy_score(y_true, y_pred)
     auc = roc_auc_score(y_true, y_pred)
