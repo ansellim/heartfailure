@@ -42,7 +42,25 @@ from nltk.corpus import wordnet
 import re
 from sklearn.metrics import roc_auc_score, accuracy_score, precision_score, recall_score, f1_score
 import torch.nn.functional as F
+import logging
 
+def set_global_logging_level(level=logging.ERROR, prefices=[""]):
+    """
+    Override logging levels of different modules based on their name as a prefix.
+    It needs to be invoked after the modules have been loaded so that their loggers have been initialized.
+
+    Args:
+        - level: desired level. e.g. logging.INFO. Optional. Default is logging.ERROR
+        - prefices: list of one or more str prefices to match (e.g. ["transformers", "torch"]). Optional.
+          Default is `[""]` to match all active loggers.
+          The match is a case-sensitive `module_name.startswith(prefix)`
+    """
+    prefix_re = re.compile(fr'^(?:{ "|".join(prefices) })')
+    for name in logging.root.manager.loggerDict:
+        if re.match(prefix_re, name):
+            logging.getLogger(name).setLevel(level)
+
+set_global_logging_level(logging.CRITICAL, ["transformers.tokenization"])
 
 #import nlpaug
 
@@ -74,7 +92,9 @@ prototyping = True # change to False if you want to run with full dataset (proce
 MULTIPLIER = 30
 
 # Specify Huggingface model name (for example, "bert-base-uncased" or "bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16"
-model_name = "bert-base-uncased"
+model_name = "bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16"
+# model_name = "bert-base-uncased"
+FREEZE_BASE_MODEL_FLAG = False
 
 # All sequences will be padded or truncated to SEQ_LENGTH. Note that the max seq length for BERT & BERT-based models is 512.
 SEQ_LENGTH = 512
@@ -340,9 +360,9 @@ def preprocess(text):
     return input_ids,attention_masks
 
 # For some reason, the tokenizer returns the error message "There was a bug in trie algorithm in tokenization. Attempting to recover. Please report it anyway." but it seems that the tokenization still works...And I have been unable to fix this error...But I'll plough through for now.
-train[['input_ids','attention_masks']] = train.apply(lambda row: preprocess(row['text']),axis=1,result_type='expand')
-val[['input_ids','attention_masks']] = val.apply(lambda row: preprocess(row['text']),axis=1,result_type='expand')
-test[['input_ids','attention_masks']] = test.apply(lambda row: preprocess(row['text']),axis=1,result_type='expand')
+#train[['input_ids','attention_masks']] = train.apply(lambda row: preprocess(row['text']),axis=1,result_type='expand')
+#val[['input_ids','attention_masks']] = val.apply(lambda row: preprocess(row['text']),axis=1,result_type='expand')
+#test[['input_ids','attention_masks']] = test.apply(lambda row: preprocess(row['text']),axis=1,result_type='expand')
 
 checkpoint4 = time.time()
 
@@ -366,9 +386,10 @@ class HeartFailureDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         text = self.dataframe.loc[idx, 'text']
         label = self.dataframe.loc[idx, 'label']
-        input_ids = self.dataframe.loc[idx,'input_ids']
-        attention_masks = self.dataframe.loc[idx,'attention_masks']
-        sample = {'text': text, 'input_ids': input_ids, 'attention_masks': attention_masks, 'label': label}
+        #input_ids = self.dataframe.loc[idx,'input_ids']
+        #attention_masks = self.dataframe.loc[idx,'attention_masks']
+        #sample = {'text': text, 'input_ids': input_ids, 'attention_masks': attention_masks, 'label': label}
+        sample = {'text': text, 'label': label}
         return sample
 
 
@@ -381,8 +402,9 @@ test_set = HeartFailureDataset(test)
 def collate_batch(batch):
     inputs, masks, labels = [], [], []
     for example in batch:
-        inputs.append(example['input_ids'])
-        masks.append(example['attention_masks'])
+        input_id,attention_mask = preprocess(example['text'])
+        inputs.append(input_id)
+        masks.append(attention_mask)
         labels.append(example['label'])
     inputs = torch.LongTensor(inputs)
     masks = torch.LongTensor(masks)
@@ -411,7 +433,7 @@ class Network(nn.Module):
         self.conv2 = nn.Conv2d(in_channels=6, out_channels=16, kernel_size=(5,5)) 
         self.conv3 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=(5,5)) 
         self.pool = nn.MaxPool2d(kernel_size=(2,2))
-        self.fc1 = nn.Linear(in_features= 176640, out_features=256) #in_features --> 32*60*92
+        self.fc1 = nn.Linear(in_features= 32 * 60 * 124 , out_features=256) #in_features --> 32*60*92 for bert uncased, 32 * 60 * 124 for bluebert
         self.fc2 = nn.Linear(in_features= 256, out_features=16) 
         self.fc3= nn.Linear(16, 2)
 
@@ -427,7 +449,7 @@ class Network(nn.Module):
     def forward(self, inputs, masks):
         outputs = self.base(input_ids = inputs, attention_mask = masks)  #output is (8,512,768)
         #final_hidden_state = outputs[0][:,0,:]
-        print("=== inside forward ",BATCH_SIZE,1,SEQ_LENGTH,self.base.config.hidden_size,outputs[0].shape)
+        #print("=== inside forward ",BATCH_SIZE,1,SEQ_LENGTH,self.base.config.hidden_size,outputs[0].shape)
         final_hidden_state=outputs[0].reshape(BATCH_SIZE,1,SEQ_LENGTH,self.base.config.hidden_size) #reshape to (8,1,512,768)
         #print(final_hidden_state.shape)
         out2 = self.pool(F.relu(self.conv1(final_hidden_state)))
@@ -435,7 +457,7 @@ class Network(nn.Module):
         out2 = self.pool(F.relu(self.conv2(out2)))
         # print("===After 2nd conv layer", out2.shape)
         out2 = self.pool(F.relu(self.conv3(out2)))
-        # print("===After 3rd conv layer", out2.shape)
+        #print("===After 3rd conv layer", out2.shape)
         out2 = torch.flatten(out2, 1)
         out2 = F.dropout(out2,p=0.5)          #dropout 0.5
         out2 = F.relu(self.fc1(out2))   #nn.Linear(xx, 256), nn.ReLU()
@@ -453,7 +475,7 @@ checkpoint6 = time.time()
 
 # Instantiate neural network object
 
-model = Network(freeze_base_model=True)
+model = Network(freeze_base_model=FREEZE_BASE_MODEL_FLAG)
 model = model.to(device)
 
 # Define loss function, optimizer, learning rate scheduler.
@@ -542,6 +564,7 @@ def compute_metrics(results):
 print('Checking the results of test dataset.')
 test_accuracy,test_results = evaluate(test_loader,model)
 print('test accuracy {:8.3f}'.format(test_accuracy))
+print('=== test results',test_results)
 metrics = compute_metrics(test_results)
 print('all metrics ',metrics)
 
