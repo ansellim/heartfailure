@@ -82,11 +82,12 @@ random.seed(42)
 np.random.seed(42)
 torch.manual_seed(42)
 torch.backends.cudnn.deterministic = True
-torch.set_num_threads(8)
+torch.set_num_threads(12)
 print("num of threads",torch.get_num_threads())
 # Torch Device will be CUDA if available, otherwise CPU.
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-
+device_count = torch.cuda.device_count()
+print("device used ",device)
 ###################################################################################################
 ################CHANGE SETTINGS (except neural network architecture) HERE##########################
 ###################################################################################################
@@ -100,16 +101,17 @@ MULTIPLIER = 30
 # Specify Huggingface model name (for example, "bert-base-uncased" or "bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16"
 model_name = "bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16"
 # model_name = "bert-base-uncased"
-FREEZE_BASE_MODEL_FLAG = False
+FREEZE_BASE_MODEL_FLAG = True
 
 # All sequences will be padded or truncated to SEQ_LENGTH. Note that the max seq length for BERT & BERT-based models is 512.
 SEQ_LENGTH = 512
 
 # Model specifications / hyperparameters / training settings
 NUM_EPOCHS = 3 # can try 2-4
-BATCH_SIZE = 8 # adjust according to memory constraints
+BATCH_SIZE = 16 # adjust according to memory constraints
 LEARNING_RATE = 5e-5 # can try 2e-5, 3e-5, 4e-5, 5e-5 (note that by default we are using Adam optimizer)
-
+NUM_WORKERS = 12
+print (" parameters :",BATCH_SIZE,NUM_WORKERS,FREEZE_BASE_MODEL_FLAG)
 # Specify a tokenizer. We'll use a BertTokenizer object from Huggingface.
 tokenizer = BertTokenizer.from_pretrained(model_name)
 
@@ -419,9 +421,9 @@ def collate_batch(batch):
 
 # Create PyTorch DataLoader objects
 
-train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch,num_workers=8)
-val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch,num_workers=8)
-test_loader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_batch,num_workers=8)
+train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch,num_workers=NUM_WORKERS)
+val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch,num_workers=NUM_WORKERS)
+test_loader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_batch,num_workers=NUM_WORKERS)
 
 checkpoint5 = time.time()
 
@@ -430,6 +432,7 @@ checkpoint5 = time.time()
 ###################################################################################################
 
 # Define neural network architecture here.
+
 
 class Network(nn.Module):
     def __init__(self,freeze_base_model=True):
@@ -456,7 +459,7 @@ class Network(nn.Module):
         outputs = self.base(input_ids = inputs, attention_mask = masks)  #output is (8,512,768)
         #final_hidden_state = outputs[0][:,0,:]
         #print("=== inside forward ",BATCH_SIZE,1,SEQ_LENGTH,self.base.config.hidden_size,outputs[0].shape)
-        final_hidden_state=outputs[0].reshape(BATCH_SIZE,1,SEQ_LENGTH,self.base.config.hidden_size) #reshape to (8,1,512,768)
+        final_hidden_state=outputs[0].reshape(int(BATCH_SIZE/device_count),1,SEQ_LENGTH,self.base.config.hidden_size) #reshape to (8,1,512,768)
         #print(final_hidden_state.shape)
         out2 = self.pool(F.relu(self.conv1(final_hidden_state)))
         # print("===After 1st conv layer", out2.shape)
@@ -482,6 +485,10 @@ checkpoint6 = time.time()
 # Instantiate neural network object
 
 model = Network(freeze_base_model=FREEZE_BASE_MODEL_FLAG)
+if torch.cuda.device_count() > 1:
+  print("Let's use", torch.cuda.device_count(), "GPUs!")
+  # dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
+  model = nn.DataParallel(model)
 model = model.to(device)
 
 # Define loss function, optimizer, learning rate scheduler.
