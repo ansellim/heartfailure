@@ -86,7 +86,6 @@ torch.set_num_threads(12)
 print("num of threads",torch.get_num_threads())
 # Torch Device will be CUDA if available, otherwise CPU.
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-device_count = torch.cuda.device_count()
 print("device used ",device)
 ###################################################################################################
 ################CHANGE SETTINGS (except neural network architecture) HERE##########################
@@ -96,7 +95,7 @@ print("device used ",device)
 prototyping = False # change to False if you want to run with full dataset (processing time may be long!)
 
 # Specify the multiplier for Preprocessing Part 3: this is the number of new documents created by shuffling each document in the train set
-MULTIPLIER = 30
+MULTIPLIER = 10
 
 # Specify Huggingface model name (for example, "bert-base-uncased" or "bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16"
 model_name = "bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16"
@@ -108,10 +107,10 @@ SEQ_LENGTH = 512
 
 # Model specifications / hyperparameters / training settings
 NUM_EPOCHS = 3 # can try 2-4
-BATCH_SIZE = 16 # adjust according to memory constraints
+BATCH_SIZE = 80 # adjust according to memory constraints
 LEARNING_RATE = 5e-5 # can try 2e-5, 3e-5, 4e-5, 5e-5 (note that by default we are using Adam optimizer)
 NUM_WORKERS = 12
-print (" parameters :",BATCH_SIZE,NUM_WORKERS,FREEZE_BASE_MODEL_FLAG)
+print (" parameters :",BATCH_SIZE,NUM_WORKERS,FREEZE_BASE_MODEL_FLAG,"multiplier ",MULTIPLIER)
 # Specify a tokenizer. We'll use a BertTokenizer object from Huggingface.
 tokenizer = BertTokenizer.from_pretrained(model_name)
 
@@ -459,7 +458,7 @@ class Network(nn.Module):
         outputs = self.base(input_ids = inputs, attention_mask = masks)  #output is (8,512,768)
         #final_hidden_state = outputs[0][:,0,:]
         #print("=== inside forward ",BATCH_SIZE,1,SEQ_LENGTH,self.base.config.hidden_size,outputs[0].shape)
-        final_hidden_state=outputs[0].reshape(int(BATCH_SIZE/device_count),1,SEQ_LENGTH,self.base.config.hidden_size) #reshape to (8,1,512,768)
+        final_hidden_state=outputs[0].reshape(-1,1,SEQ_LENGTH,self.base.config.hidden_size) #reshape to (batch_size,1,512,768) -1 so that it change dynamically
         #print(final_hidden_state.shape)
         out2 = self.pool(F.relu(self.conv1(final_hidden_state)))
         # print("===After 1st conv layer", out2.shape)
