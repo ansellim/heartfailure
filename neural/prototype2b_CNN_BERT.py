@@ -1,4 +1,3 @@
-
 # Ansel Lim
 # updated 24 Nov 2021 2am --> 9am
 
@@ -43,6 +42,12 @@ import re
 from sklearn.metrics import roc_auc_score, accuracy_score, precision_score, recall_score, f1_score
 import torch.nn.functional as F
 import logging
+from datetime import datetime
+
+now = datetime.now()
+
+current_time = now.strftime("%H:%M:%S")
+print("Current Time =", current_time)
 
 def set_global_logging_level(level=logging.ERROR, prefices=[""]):
     """
@@ -77,7 +82,7 @@ random.seed(42)
 np.random.seed(42)
 torch.manual_seed(42)
 torch.backends.cudnn.deterministic = True
-
+torch.set_num_threads(8)
 # Torch Device will be CUDA if available, otherwise CPU.
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -86,7 +91,7 @@ device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("
 ###################################################################################################
 
 # If prototyping, then code runs only with a fraction of the dataset, otherwise we run the entire script with the full dataset.
-prototyping = True # change to False if you want to run with full dataset (processing time may be long!)
+prototyping = False # change to False if you want to run with full dataset (processing time may be long!)
 
 # Specify the multiplier for Preprocessing Part 3: this is the number of new documents created by shuffling each document in the train set
 MULTIPLIER = 30
@@ -413,9 +418,9 @@ def collate_batch(batch):
 
 # Create PyTorch DataLoader objects
 
-train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch)
-val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch)
-test_loader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_batch)
+train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch,num_workers=8)
+val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch,num_workers=8)
+test_loader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_batch,num_workers=8)
 
 checkpoint5 = time.time()
 
@@ -532,7 +537,9 @@ print("=== start training")
 # Training loop
 total_accu = 0.0
 for epoch in range(NUM_EPOCHS):
-
+    now = datetime.now()
+    current_time = now.strftime("%H:%M:%S")
+    print("Epoch ",epoch," - Current Time =", current_time)
     epoch_start_time = time.time()
     train(train_loader, model=model, log_interval=1)
     accu_val,_ = evaluate(val_loader, model = model)
