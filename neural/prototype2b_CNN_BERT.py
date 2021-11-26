@@ -83,6 +83,7 @@ np.random.seed(42)
 torch.manual_seed(42)
 torch.backends.cudnn.deterministic = True
 torch.set_num_threads(8)
+print("num of threads",torch.get_num_threads())
 # Torch Device will be CUDA if available, otherwise CPU.
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
