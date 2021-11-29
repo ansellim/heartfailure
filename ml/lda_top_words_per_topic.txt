@@ -1,0 +1,20 @@
+LDA_0:
+paraplegia personality bermuda panhypopituitarism hypopituitarism clozapine ecmo neurosarcoidosis hypoaldosteronism blueberry kiwi kale logically antisocial cashew lettuce asparagus collard margarine endive
+LDA_1:
+day infant discharge life normal week blood admission respiratory negative age care time date received feeding delivery baby screen weight
+LDA_2:
+blood patient discharge history pain mg day admission medication pt pm liver tablet hct ct abdominal bleeding c po normal
+LDA_3:
+patient mg day q p history discharge time admission blood status left pressure disease unit hospital heart artery right post
+LDA_4:
+left right mg tablet discharge ct head po patient history fracture hemorrhage seizure medication time day sig bilaterally c normal
+LDA_5:
+right left tube culture effusion patient ct pleural chest lung final fluid lobe ml pulmonary seen small pneumonia respiratory negative
+LDA_6:
+mg tablet po daily day sig blood patient discharge history pain home pm admission medication denies time chest capsule h
+LDA_7:
+addison castleman anaplastic folfiri cetuximab arq lobby unicentric olecranan impella moped condylomata ribavarin telaprevir decongestant telepavir sarcomatoid erratic clerk synthes
+LDA_8:
+tablet mg daily po sig left day valve aortic refill discharge disp normal right history x artery blood ventricular release
+LDA_9:
+mg tablet po blood sig daily day pt pm h time discharge patient q c ml unit admission history needed
