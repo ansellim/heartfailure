@@ -34,6 +34,9 @@ def run_xgboost(d_train:DMatrix, d_val:DMatrix) -> XGBClassifier:
     # Training outputs
     print(f'\n----------Training Best performance----------')
     print(model.attributes())
+    scores = pd.Series(model.get_score()).reset_index()
+    scores.columns = ["keyword", "importance score"]
+    scores.sort_values(by = ["importance score", "keyword"], ascending = [False, True]).to_csv("XGBoost words by importance.csv", index = False)
     xgb.plot_importance(model, max_num_features=25)
     plt.savefig('xgboost_plot_importance.png',bbox_inches='tight',dpi = 300)
 
