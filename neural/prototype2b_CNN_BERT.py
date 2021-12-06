@@ -350,7 +350,7 @@ def shuffle_sentences(text):
     #move the sentence that has no keyword to the back
     permuted_adjusted = [sen for sen,res in zip(permuted,res) if res==True]
     permuted_adjusted.extend([sen for sen,res in zip(permuted,res) if res==False])
-    shuffled = ' '.join(permuted)
+    shuffled = ' '.join(permuted_adjusted)
     return shuffled
 
 new_texts=[]
