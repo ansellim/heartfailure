@@ -48,17 +48,20 @@ def generate_lda_features(X_train_lda, X_val_lda, n_topics):
 
 def print_top_words_per_topic(model, feature_names):
 
-    all_top_20_words = []
+    words_by_importance = []
     print("\n\n\n----------Evaluation Metrics---------\n")
-    with open("lda_top_words_per_topic.txt","w") as f:
+    for i, topic in enumerate(model.components_):
+        words_wgt = list(zip(feature_names, topic))
+        ranked_words = sorted(words_wgt, key=lambda x: x[1], reverse = True)
+        ranked_words = [(f"LDA_{i}", x, y) for x,y in ranked_words]
+        top_20_important = [x for _,x,_ in ranked_words][:20]
+        print(f"LDA_{i}:\n{' '.join(top_20_important)}")
+        words_by_importance.extend(ranked_words)
+    print("\n")
+    
+    words_by_importance = pd.DataFrame(data = words_by_importance, index = None)
+    words_by_importance.columns = ["topic", "keyword", "importance score"]
+    words_by_importance = words_by_importance.sort_values(by = ["topic", "importance score", "keyword"], ascending = [True, False, True])
+    words_by_importance.to_csv("LDA words by importance.csv", index = False)
 
-        for i, topic in enumerate(model.components_):
-            words_wgt = list(zip(feature_names, topic))
-            top_20_important = sorted(words_wgt, key=lambda x: x[1], reverse = True)[:20]
-            top_20_important = [x for x,y in top_20_important]
-            print(f"LDA_{i}:\n{' '.join(top_20_important)}")
-            f.write(f"LDA_{i}:\n{' '.join(top_20_important)}\n")
-            all_top_20_words.append(top_20_important)
-        print("\n")
-
-    return all_top_20_words
+    return words_by_importance
