@@ -82,7 +82,7 @@ random.seed(42)
 np.random.seed(42)
 torch.manual_seed(42)
 torch.backends.cudnn.deterministic = True
-torch.set_num_threads(12)
+torch.set_num_threads(6)
 print("num of threads",torch.get_num_threads())
 # Torch Device will be CUDA if available, otherwise CPU.
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
@@ -107,9 +107,9 @@ SEQ_LENGTH = 512
 
 # Model specifications / hyperparameters / training settings
 NUM_EPOCHS = 3 # can try 2-4
-BATCH_SIZE = 80 # adjust according to memory constraints
+BATCH_SIZE = 12 # adjust according to memory constraints
 LEARNING_RATE = 5e-5 # can try 2e-5, 3e-5, 4e-5, 5e-5 (note that by default we are using Adam optimizer)
-NUM_WORKERS = 12
+NUM_WORKERS = 6
 print (" parameters :",BATCH_SIZE,NUM_WORKERS,FREEZE_BASE_MODEL_FLAG,"multiplier ",MULTIPLIER)
 # Specify a tokenizer. We'll use a BertTokenizer object from Huggingface.
 tokenizer = BertTokenizer.from_pretrained(model_name)
@@ -118,6 +118,9 @@ tokenizer = BertTokenizer.from_pretrained(model_name)
 # We will use BertModel class rather than BertForSequenceClassification, so that we have more room for network customization for our task.
 base_model = BertModel.from_pretrained(model_name)
 
+#storing the model file
+model_file_name = "bert_cnn_mul_10"
+print("model file name: ",model_file_name)
 ###################################################################################################
 #########################IMPORT DATA & DEEP LEARNING-SPECIFIC PREPROCESSING########################
 ###################################################################################################
@@ -239,6 +242,8 @@ def shorten_text(text, vocabulary):
     return transformed
 
 train['shortened_text'] = train.apply(lambda row: shorten_text(row['text'], tfidf.vocabulary_), axis=1)
+val['shortened_text'] = val.apply(lambda row: shorten_text(row['text'], tfidf.vocabulary_), axis=1)
+test['shortened_text'] = test.apply(lambda row: shorten_text(row['text'], tfidf.vocabulary_), axis=1)
 
 # A utility function to filter out outliers in an array using the 1.5 x IQR rule
 def remove_outliers(array):
@@ -270,6 +275,13 @@ plt.savefig("./models/shortening.png")
 
 train.drop(columns={'text'},inplace=True)
 train.rename(columns={'shortened_text':'text'},inplace=True)
+val.drop(columns={'text'},inplace=True)
+val.rename(columns={'shortened_text':'text'},inplace=True)
+test.drop(columns={'text'},inplace=True)
+test.rename(columns={'shortened_text':'text'},inplace=True)
+
+
+
 
 checkpoint1 = time.time()
 
@@ -319,6 +331,13 @@ The idea is that NLP deep learning models such as BERT have a maximal sequence l
 
 print("Shape of train set prior to shuffling of sentence order",train.shape)
 
+KEY_WORD_LIST = ['disp','aortic','refill','status','hospital','unit','blood','sig','stable','pain',
+ 'valve','congestive','pressure','day','medication','normal','patient','release','drug','possible','history','rhythm',
+ 'renal','lasix','sob','discharge','head','daily','admitted','post','tablet','heart',
+ 'mellitus','ventricular','right','artery','trauma','hypertension','admission','needed','left','disease',
+ 'coumadin','glucose','rehab','aspirin','trauma','transferred','nausea'
+]
+
 def shuffle_sentences(text):
     '''
     @param text: a document (string) that is to be processed
@@ -326,6 +345,11 @@ def shuffle_sentences(text):
     '''
     sentences = sent_tokenize(text)
     permuted = np.random.permutation(sentences)
+    res = [any(ele in sen_token for ele in KEY_WORD_LIST) for sen_token in permuted]
+    #push sentence with keyword to the front.
+    #move the sentence that has no keyword to the back
+    permuted_adjusted = [sen for sen,res in zip(permuted,res) if res==True]
+    permuted_adjusted.extend([sen for sen,res in zip(permuted,res) if res==False])
     shuffled = ' '.join(permuted)
     return shuffled
 
@@ -421,8 +445,8 @@ def collate_batch(batch):
 # Create PyTorch DataLoader objects
 
 train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch,num_workers=NUM_WORKERS)
-val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch,num_workers=NUM_WORKERS)
-test_loader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_batch,num_workers=NUM_WORKERS)
+val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch,num_workers=0)
+test_loader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_batch,num_workers=0)
 
 checkpoint5 = time.time()
 
@@ -473,6 +497,7 @@ class Network(nn.Module):
         out2 = F.relu(self.fc2(out2))   #n.Linear(256, 16), nn.ReLU(),
         logits = self.fc3(out2)             #nn.Linear(16, 2))
         #logits = self.clf(out2)
+        #print("\tIn Model: input size", inputs.size())
         return logits
 
 ###################################################################################################
@@ -488,7 +513,7 @@ if torch.cuda.device_count() > 1:
   print("Let's use", torch.cuda.device_count(), "GPUs!")
   # dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
   model = nn.DataParallel(model)
-model = model.to(device)
+model = model.to(device) #model = 
 
 # Define loss function, optimizer, learning rate scheduler.
 criterion = nn.CrossEntropyLoss()
@@ -506,8 +531,10 @@ def train(dataloader, model, log_interval):
     start_time = time.time()
     for idx, ((inputs,masks),labels) in enumerate(dataloader):
         inputs,masks,labels = inputs.to(device), masks.to(device), labels.to(device)
+
         optimizer.zero_grad()
         predicted_labels = model(inputs,masks)
+
         loss = criterion(predicted_labels, labels)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
@@ -515,6 +542,7 @@ def train(dataloader, model, log_interval):
         total_acc += (predicted_labels.argmax(1) == labels).sum().item()
         total_count += labels.size(0)
         if idx % log_interval == 0 and idx > 0:
+            print("DataParallel: input size", inputs.size(),"output_size", predicted_labels.size())
             print('| epoch {:3d} | {:5d}/{:5d} batches | accuracy {:8.3f}'.format(epoch, idx, len(dataloader), total_acc / total_count))
             total_acc, total_count = 0, 0
     elapsed_time = time.time()
@@ -548,7 +576,7 @@ for epoch in range(NUM_EPOCHS):
     current_time = now.strftime("%H:%M:%S")
     print("Epoch ",epoch," - Current Time =", current_time)
     epoch_start_time = time.time()
-    train(train_loader, model=model, log_interval=1)
+    train(train_loader, model=model, log_interval=20)
     accu_val,_ = evaluate(val_loader, model = model)
     if accu_val>total_accu or total_accu==0.0:
         best_state_dict = copy.deepcopy(model.state_dict())
@@ -561,11 +589,11 @@ for epoch in range(NUM_EPOCHS):
     print('-' * 50)
 
 model.load_state_dict(best_state_dict)
-torch.save(model,"./models/" + model_name + ".pth")
-torch.save(model.state_dict(), "./models/" + model_name + "_state_dict.pth")
+torch.save(model,"./models/" + model_file_name + ".pth")
+torch.save(model.state_dict(), "./models/" + model_file_name + "_state_dict.pth")
 
 def compute_metrics(results):
-    y_true = [i[0][0] for i in results]
+    y_true = [i[0] for i in results]
     y_pred = [i[1] for i in results]
     acc = accuracy_score(y_true, y_pred)
     auc = roc_auc_score(y_true, y_pred)
