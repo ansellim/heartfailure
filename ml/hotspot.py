@@ -1,5 +1,8 @@
-#manually curated keywords
-#https://docs.google.com/spreadsheets/d/1J0Bvk7Vf9Q9R-lHoSDOdWhWtqTrLhJh5N5K7c-oCNjA/edit#gid=0
+# Utilises "Hotspot" Techniques based on paper by Torii et al 
+# Please refer to report for more information
+
+# manually curated keywords
+# https://docs.google.com/spreadsheets/d/1J0Bvk7Vf9Q9R-lHoSDOdWhWtqTrLhJh5N5K7c-oCNjA/edit#gid=0
 
 import re
 from datetime import datetime
@@ -9,8 +12,13 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 from scipy import sparse
+from fuzzywuzzy import fuzz
 
 def search_complete_terms(text, hf_terms):
+    """
+    Searches for EXACT keywords ("hotspots") matches in cleaned clinical text
+    hf_terms obtained from manually curated terms by the team 
+    """
     terms = np.zeros(len(hf_terms))
     for t in range(len(hf_terms)):
         grps = re.findall(hf_terms[t], text)
@@ -19,6 +27,11 @@ def search_complete_terms(text, hf_terms):
     return terms
 
 def search_complete_terms_fuzzy(text, hf_terms):
+    """
+    Searches for SIMILAR keywords ("hotspots") matches in cleaned clinical text
+    based on fuzzy matching using Levenshtein Distance
+    hf_terms obtained from manually curated terms by the team 
+    """
     terms = np.zeros(len(hf_terms))
     split_text = list(filter(lambda x: x!="", re.split("\s", re.sub("[^A-Za-z0-9(\\n)(\\s)]+", "", text))))
 
@@ -34,15 +47,23 @@ def search_complete_terms_fuzzy(text, hf_terms):
     
     return terms
 
-def search_modifier_terms(text, hf_terms):
-    terms = np.zeros(len(hf_terms))
-    for t in range(len(hf_terms)):
-        grps = re.findall(hf_terms[t], text)
-        terms[t] = len(grps)
+# def search_modifier_terms(text, hf_terms):
+#     """
+#     Search modifier terms using regex such as xx/xx blood pressure/bp levels
+#     refer to Report for more information
+#     """
+
+#     terms = np.zeros(len(hf_terms))
+#     for t in range(len(hf_terms)):
+#         grps = re.findall(hf_terms[t], text)
+#         terms[t] = len(grps)
     
-    return terms
+#     return terms
 
 def get_elapsed_duration(data):
+    """
+    function to extract admission duration based on cleaned clinical text
+    """
 
     admit = data["text"].apply(lambda x: re.search("Admission Date:\s+\[\*\*\d+-\d+-\d+\*\*\]", x))
     discharge = data["text"].apply(lambda x: re.search("Discharge Date:\s+\[\*\*\d+-\d+-\d+\*\*\]", x))
@@ -66,6 +87,9 @@ def get_elapsed_duration(data):
     return duration["elapsed"].values[:, np.newaxis]
 
 def plot_features(full_features, name):
+    """
+    Plots complete sparse matrix representation of features for visualisation using matplotlib
+    """
     plt.figure(figsize=(20,15))
     plt.imshow(full_features, interpolation="nearest", aspect="auto")
     plt.colorbar()
@@ -73,6 +97,9 @@ def plot_features(full_features, name):
     plt.close()
 
 def compare_features_plot(complete_terms_features, complete_terms_fuzzy_features, modifier_terms_features):
+    """
+    Plots different feature matrices separately for visual comparison 
+    """
     fig, axs = plt.subplots(3, figsize = (20,15))
     ax0 = axs[0].imshow(complete_terms_features, interpolation='nearest', aspect='auto')
     axs[0].set_title('Complete terms')
@@ -87,12 +114,18 @@ def compare_features_plot(complete_terms_features, complete_terms_fuzzy_features
     plt.close()
 
 def get_hotspot_feature_names():
+    """
+    Reads in manually curated "hotspot" keywords
+    """
     hf_terms = pd.read_pickle("./datasets/hf_terms.pkl")
     feature_names = hf_terms["term"].apply(lambda x: "HP_" + x).tolist()
 
     return hf_terms["term"].tolist(), feature_names
 
 def generate_hotspot_features(data, hf_terms):
+    """
+    Generates features as a sparse matrix based on EXACT keywords ("hotspots") matches in cleaned clinical text
+    """
     complete_terms = []
 
     for p in range(len(data)):

@@ -1,3 +1,10 @@
+"""
+Main script to run all :
+1. Preprocessing
+2. Feature engineeering 
+3. Train Classification Models (xgboost and SVM)
+4. Evaluate  Models 
+"""
 import pandas as pd
 import xgboost as xgb
 from sklearn.preprocessing import MinMaxScaler
@@ -11,6 +18,9 @@ from scipy.sparse import hstack, csr_matrix
 from svm_classifier import run_svm
 
 def min_max_norm(mat):
+    """
+    Min-max scaling of data before feature engineering process
+    """
     mat = mat.todense()
     scaler = MinMaxScaler()
     scaler.fit(mat)

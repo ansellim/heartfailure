@@ -6,6 +6,10 @@ from sklearn.decomposition import LatentDirichletAllocation
 ## adapted from Daniel's codes
 
 def build_count_vectorizer(all_text):
+    """
+    Inputs: A dataframe of all text from train and test sets (corpus)
+    Output: A Count vectorizer trained the given corpus
+    """
     vectorizer = CountVectorizer(analyzer='word',
                             strip_accents='unicode',
                             min_df=0,                        # minimum reqd occurences of a word 
@@ -19,18 +23,28 @@ def build_count_vectorizer(all_text):
     return vectorizer.fit(all_text)
 
 def get_bow_vect(train_text, val_text):
+    """
+    wrapper function to get vectorized train and test/validation data
+    together with count vectorizer
+    """
     bow_vectorizer = build_count_vectorizer(pd.concat([train_text, val_text]))
     X_train_lda = bow_vectorizer.transform(train_text)
     X_val_lda = bow_vectorizer.transform(val_text)
     
     return X_train_lda, X_val_lda, bow_vectorizer
 
-## referenced from 
-### https://towardsdatascience.com/topic-modeling-and-latent-dirichlet-allocation-in-python-9bf156893c24
-### https://www.machinelearningplus.com/nlp/topic-modeling-python-sklearn-examples/#7createthedocumentwordmatrix
 
-# build LDA based on bow
 def generate_lda_features(X_train_lda, X_val_lda, n_topics):
+    """
+    referenced from 
+    https://towardsdatascience.com/topic-modeling-and-latent-dirichlet-allocation-in-python-9bf156893c24
+    https://www.machinelearningplus.com/nlp/topic-modeling-python-sklearn-examples/#7createthedocumentwordmatrix
+
+    Build LDA based on Bag-of-Words approach 
+    
+    Inputs: vectorized train and test/valid data, number of topics to be modelled
+    Outputs: Fitted model, transformed train and test/valid data features
+    """
 
     model = LatentDirichletAllocation(
         n_components = n_topics,
@@ -47,7 +61,9 @@ def generate_lda_features(X_train_lda, X_val_lda, n_topics):
     return X_train_lda, X_val_lda, lda_model
 
 def print_top_words_per_topic(model, feature_names):
-
+    """
+    Outputs all words and weights for each topic in LDA model
+    """
     words_by_importance = []
     print("\n\n\n----------Evaluation Metrics---------\n")
     for i, topic in enumerate(model.components_):

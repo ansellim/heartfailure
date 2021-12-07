@@ -14,6 +14,11 @@ import joblib
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 
 def run_svm(X_train, y_train, X_val, y_val, X_test, y_test):
+    """
+    Function to train and tune SVM using grid search
+    Returns best SVM model
+    """
+
     # Fit the model
     base_clf = Pipeline([('sgd',SGDClassifier(loss='hinge',
                                         penalty='l2',
