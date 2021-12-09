@@ -12,6 +12,8 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import GridSearchCV
 import joblib
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
+import numpy as np
+
 
 def run_svm(X_train, y_train, X_val, y_val, X_test, y_test):
     """
@@ -25,7 +27,7 @@ def run_svm(X_train, y_train, X_val, y_val, X_test, y_test):
                                         alpha=0.0001,
                                         max_iter=1000,
                                         random_state=42))])
-    params = {'sgd__alpha': (1e-2, 1e-3, 1e-4)}
+    params = {'sgd__alpha': tuple(np.linspace(0.00001, 0.01, 30))}
     grid_search = GridSearchCV(base_clf,params,n_jobs=-1)
     grid_search.fit(X_train,y_train)
 
@@ -50,4 +52,4 @@ def run_svm(X_train, y_train, X_val, y_val, X_test, y_test):
     # Save the best model
     joblib.dump(best_model,"./models/svm_classifier_" + str(datetime.now().strftime("%Y%m%d_%H%M%S")) + "_.pkl")
 
-    return best_model
+    return accuracy_score(y_test, pred_test), roc_auc_score(pred_test, y_test), f1_score(y_test, pred_test)

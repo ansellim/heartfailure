@@ -45,7 +45,7 @@ def get_data(type:str) -> pd.DataFrame:
 
     return df
 
-def build_tfidf_vectorizer(all_text:pd.DataFrame) -> TfidfVectorizer:
+def build_tfidf_vectorizer(all_text:pd.DataFrame, VECTORISER_MAX_FEATURES) -> TfidfVectorizer:
     """
     Inputs: A dataframe of all text from train and test sets (corpus)
     Output: A TF-IDF word vectorizer trained the given corpus
@@ -60,7 +60,7 @@ def build_tfidf_vectorizer(all_text:pd.DataFrame) -> TfidfVectorizer:
         norm='l2',
         min_df=0,
         smooth_idf=False,
-        max_features=15000)
+        max_features=VECTORISER_MAX_FEATURES)
     word_vectorizer.fit(all_text)
     
     return word_vectorizer

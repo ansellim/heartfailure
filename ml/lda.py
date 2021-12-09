@@ -5,7 +5,7 @@ from sklearn.decomposition import LatentDirichletAllocation
 
 ## adapted from Daniel's codes
 
-def build_count_vectorizer(all_text):
+def build_count_vectorizer(all_text, VECTORISER_MAX_FEATURES):
     """
     Inputs: A dataframe of all text from train and test sets (corpus)
     Output: A Count vectorizer trained the given corpus
@@ -15,19 +15,19 @@ def build_count_vectorizer(all_text):
                             min_df=0,                        # minimum reqd occurences of a word 
                             stop_words='english',             # remove stop words
                             lowercase=True,                   # convert all words to lowercase
-                            max_features=15000,             # max number of uniq words
+                            max_features=VECTORISER_MAX_FEATURES,             # max number of uniq words
                             token_pattern='\\w{1,}',
                             ngram_range=(1, 1),
                             )
 
     return vectorizer.fit(all_text)
 
-def get_bow_vect(train_text, val_text):
+def get_bow_vect(train_text, val_text, VECTORISER_MAX_FEATURES):
     """
     wrapper function to get vectorized train and test/validation data
     together with count vectorizer
     """
-    bow_vectorizer = build_count_vectorizer(pd.concat([train_text, val_text]))
+    bow_vectorizer = build_count_vectorizer(pd.concat([train_text, val_text]), VECTORISER_MAX_FEATURES)
     X_train_lda = bow_vectorizer.transform(train_text)
     X_val_lda = bow_vectorizer.transform(val_text)
     
@@ -65,7 +65,7 @@ def print_top_words_per_topic(model, feature_names):
     Outputs all words and weights for each topic in LDA model
     """
     words_by_importance = []
-    print("\n\n\n----------Evaluation Metrics---------\n")
+    print("\n\n\n----------Top words per topic---------\n")
     for i, topic in enumerate(model.components_):
         words_wgt = list(zip(feature_names, topic))
         ranked_words = sorted(words_wgt, key=lambda x: x[1], reverse = True)

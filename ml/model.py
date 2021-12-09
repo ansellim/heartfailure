@@ -3,9 +3,9 @@ from xgboost.core import DMatrix
 from xgboost.sklearn import XGBClassifier
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.metrics import classification_report, confusion_matrix, auc, roc_curve, accuracy_score
+from sklearn.metrics import classification_report, confusion_matrix, auc, roc_curve, accuracy_score, f1_score
 
-def run_xgboost(d_train:DMatrix, d_val:DMatrix) -> XGBClassifier:
+def run_xgboost(d_train:DMatrix, d_val:DMatrix, XGB_ETA, XGB_EARLY_STOP) -> XGBClassifier:
     """
     Run xgboost model using training and validation dataset
     Print out best AUC reached and save feature importance plot
@@ -14,7 +14,7 @@ def run_xgboost(d_train:DMatrix, d_val:DMatrix) -> XGBClassifier:
     """
     # Modeling
     xgb_params = {
-        'eta': 0.3, 
+        'eta': XGB_ETA, 
         'max_depth': 5, 
         'subsample': 0.8, 
         'colsample_bytree': 0.8, 
@@ -29,7 +29,7 @@ def run_xgboost(d_train:DMatrix, d_val:DMatrix) -> XGBClassifier:
         num_boost_round=100,
         evals=[(d_val, 'valid')],
         verbose_eval=True, 
-        early_stopping_rounds=10)
+        early_stopping_rounds=XGB_EARLY_STOP)
     
     # Training outputs
     print(f'\n----------Training Best performance----------')
@@ -65,3 +65,5 @@ def true_evaluation(model:XGBClassifier, d_test:DMatrix, y_true:pd.Series):
     print('\n----------Evaluation Metrics---------')
     fpr, tpr, thresholds = roc_curve(y_true, y_pred)
     print(f'Accuracy: {accuracy_score(y_true,y_pred)} | AUC:{auc(fpr, tpr)}')
+
+    return accuracy_score(y_true,y_pred), auc(fpr, tpr), f1_score(y_true, y_pred)
