@@ -366,7 +366,7 @@ trainer = Trainer(max_epochs=MAX_NUM_EPOCHS,
                   deterministic=True,
                   accelerator='auto',
                   devices='auto',
-                  fast_dev_run=True,
+                  fast_dev_run=False,
                   callbacks=[checkpoint_callback])
 
 trainer.fit(mlp)
@@ -446,7 +446,7 @@ trainer_cnn = Trainer(max_epochs=MAX_NUM_EPOCHS,
                       deterministic=True,
                       accelerator='auto',
                       devices='auto',
-                      fast_dev_run=True,
+                      fast_dev_run=False,
                       callbacks=[checkpoint_callback_cnn])
 
 trainer_cnn.fit(cnn)
