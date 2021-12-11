@@ -1,22 +1,20 @@
-# import requests
+# Dependencies
+
 import logging
-import os
 import re
 from collections import Counter
-
 import nltk
 import numpy as np
-# from dotenv import load_dotenv
 import pandas as pd
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import transformers
 from nltk import word_tokenize, sent_tokenize
 from nltk.corpus import wordnet
 from nltk.stem import WordNetLemmatizer
 from pytorch_lightning import Trainer
 from pytorch_lightning.core.lightning import LightningModule
-from requests.structures import CaseInsensitiveDict
 from sklearn.feature_extraction.text import TfidfVectorizer
 from torch.utils.data import DataLoader
 from transformers import BertTokenizer, BertModel
@@ -24,23 +22,40 @@ from transformers import BertTokenizer, BertModel
 nltk.download('wordnet')
 nltk.download('punkt')
 
-# load_dotenv()
-PROJECT_ID = os.getenv('PROJECT_ID')
-TOKEN = os.getenv('TOKEN')
+def set_global_logging_level(level=logging.ERROR, prefices=[""]):
+    """
+    Override logging levels of different modules based on their name as a prefix.
+    It needs to be invoked after the modules have been loaded so that their loggers have been initialized.
 
-headers = CaseInsensitiveDict()
-headers['Authorization'] = "Bearer {}".format(TOKEN)
+    Args:
+        - level: desired level. e.g. logging.INFO. Optional. Default is logging.ERROR
+        - prefices: list of one or more str prefices to match (e.g. ["transformers", "torch"]). Optional.
+          Default is `[""]` to match all active loggers.
+          The match is a case-sensitive `module_name.startswith(prefix)`
+    """
+    prefix_re = re.compile(fr'^(?:{"|".join(prefices)})')
+    for name in logging.root.manager.loggerDict:
+        if re.match(prefix_re, name):
+            logging.getLogger(name).setLevel(level)
+
+set_global_logging_level(logging.CRITICAL, ["transformers.tokenization"])
+
+# Load dataset
 
 train = pd.read_csv("./datasets/train.csv")[['text', 'label']]
 val = pd.read_csv("./datasets/val.csv")[['text', 'label']]
 test = pd.read_csv("./datasets/test.csv")[['text', 'label']]
 
+# Basic preprocessing of dataset
 
 def lower_case(text):
     return text.lower()
 
 
 def clinical_text_preprocessing(text):
+    '''
+    Remove unnecessary words, headers
+    '''
     text = re.sub('admission date:', '', text)
     text = re.sub('discharge date:', '', text)
     text = re.sub('date of birth:', '', text)
@@ -64,6 +79,9 @@ def clinical_text_preprocessing(text):
 
 
 def remove_short_words(text):
+    '''
+    Remove overly short words which may not have much meaning
+    '''
     text = ' '.join([i for i in text.split() if len(i) >= 3])
     return text
 
@@ -72,6 +90,9 @@ wnl = WordNetLemmatizer()
 
 
 def get_pos(word):
+    '''
+    For each word, use WordNet to get the most common synonym (which may be itself)
+    '''
     w_synsets = wordnet.synsets(word)
     pos_counts = Counter()
     pos_counts["n"] = len([item for item in w_synsets if item.pos() == "n"])
@@ -99,6 +120,9 @@ def remove_punctuations(text):
 
 
 def apply_basic_preprocessing(data_df):
+    '''
+    Apply the preprocessing steps
+    '''
     _int_data_df = data_df.copy()
     _int_data_df['text'] = _int_data_df['text'].apply(lower_case)
     _int_data_df['text'] = _int_data_df['text'].apply(clinical_text_preprocessing)
@@ -115,6 +139,8 @@ test = apply_basic_preprocessing(test)
 
 train_texts = train['text']
 num_train_texts = len(train_texts)
+
+# Additional preprocessing - remove exceedingly common and exceedingly uncommon words
 
 tfidf = TfidfVectorizer(tokenizer=None, min_df=0.1, max_df=0.7)
 tfidf.fit_transform(train_texts)
@@ -138,24 +164,32 @@ indices_sorted_by_idf = sorted(range(len(idf)), key=lambda key: idf[key])
 idf_sorted = idf[indices_sorted_by_idf]
 tokens_by_idf = np.array(vectorizer.get_feature_names_out())[indices_sorted_by_idf]
 
+# Specify hyperparameters and other aspects of training configuration
+SEQ_LENGTH = 512
+MAX_NUM_EPOCHS = 10
+BATCH_SIZE = 12
+LEARNING_RATE = 5e-5
+NUM_WORKERS = 6
+MULTIPLIER = 10
+
+# Get a huggingface BERT model which we will finetune
+
+model_name = "bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16"
+tokenizer = BertTokenizer.from_pretrained(model_name)
+base_model = BertModel.from_pretrained(model_name, return_dict=False)
+
+# Modify the default tokenizer by adding tokens from the corpus
+
 threshold = np.percentile(idf_sorted, 70)
 new_tokens = []
 for token, idf in zip(tokens_by_idf, idf_sorted):
     if idf <= threshold and token.isalpha():
         new_tokens.append(token)
 
-model_name = "bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16"
-SEQ_LENGTH = 512
-NUM_EPOCHS = 3
-BATCH_SIZE = 12
-LEARNING_RATE = 5e-5
-NUM_WORKERS = 6
-MULTIPLIER = 10
-tokenizer = BertTokenizer.from_pretrained(model_name)
-base_model = BertModel.from_pretrained(model_name, return_dict=False)
-
 tokenizer.add_tokens(new_tokens)
 base_model.resize_token_embeddings(len(tokenizer))
+
+# Shuffle sentences. Sentences containing key words identified by our ML models (in particular, XGBoost) as having high feature importance are placed nearer the front of the document.
 
 KEY_WORD_LIST = ['disp', 'aortic', 'refill', 'status', 'hospital', 'unit', 'blood', 'sig', 'stable', 'pain',
                  'valve', 'congestive', 'pressure', 'day', 'medication', 'normal', 'patient', 'release', 'drug',
@@ -214,6 +248,7 @@ def preprocess(text):
     attention_masks = encoded['attention_mask']
     return input_ids, attention_masks
 
+# Wrap the train/validation/test sets in torch Dataset classes
 
 class HeartFailureDataset(torch.utils.data.Dataset):
     def __init__(self, dataframe):
@@ -246,6 +281,7 @@ def collate_batch(batch):
     labels = torch.LongTensor(labels)
     return (inputs, masks), labels
 
+# Create dataloaders
 
 train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch,
                           num_workers=NUM_WORKERS)
@@ -255,6 +291,9 @@ test_loader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False, collate
 
 criterion = nn.CrossEntropyLoss()
 
+############## BERT + MULTI-LAYER PERCEPTRON (FULLY CONNECTED LAYERS) ######################
+
+# Define neural network architecture and define the dataloders within the model definition
 
 class BertMLP(LightningModule):
     def __init__(self, freeze_base_model=True):
@@ -285,10 +324,9 @@ class BertMLP(LightningModule):
 
     def training_step(self, batch, batch_idx):
         (inputs, masks), labels = batch
-        print(inputs.size())
-        print(labels.size())
         logits = self.forward(inputs, masks)
         loss = criterion(logits, labels)
+        return loss
 
     def train_dataloader(self):
         return train_loader
@@ -299,35 +337,72 @@ class BertMLP(LightningModule):
     def test_dataloader(self):
         return test_loader
 
-
-def set_global_logging_level(level=logging.ERROR, prefices=[""]):
-    """
-    Override logging levels of different modules based on their name as a prefix.
-    It needs to be invoked after the modules have been loaded so that their loggers have been initialized.
-
-    Args:
-        - level: desired level. e.g. logging.INFO. Optional. Default is logging.ERROR
-        - prefices: list of one or more str prefices to match (e.g. ["transformers", "torch"]). Optional.
-          Default is `[""]` to match all active loggers.
-          The match is a case-sensitive `module_name.startswith(prefix)`
-    """
-    prefix_re = re.compile(fr'^(?:{"|".join(prefices)})')
-    for name in logging.root.manager.loggerDict:
-        if re.match(prefix_re, name):
-            logging.getLogger(name).setLevel(level)
-
-
-set_global_logging_level(logging.CRITICAL, ["transformers.tokenization"])
+# Train/val/test
 
 model = BertMLP(freeze_base_model=True)
 
-device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-print("Device used", device)
-
-if torch.cuda.device_count() > 1:
-    model = nn.DataParallel(model)
-model = model.to(device)
-
-trainer = Trainer()
-trainer.fit(model, max_epochs=10)
+trainer = Trainer(max_epochs = MAX_NUM_EPOCHS,
+                  check_val_every_n_epoch=1,
+                  deterministic=True,
+                  accelerator='auto',
+                  devices='auto',
+                  fast_dev_run=True)
+trainer.fit(model)
 trainer.test(ckpt_path="best")
+
+################# BERT + CONVOLUTIONAL NEURAL NETWORK #########################
+
+class BertCNN(LightningModule):
+    def __init__(self, freeze_base_model=True):
+        super(BertCNN, self).__init__()
+        self.base = base_model
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=6, kernel_size=(5, 5))
+        self.conv2 = nn.Conv2d(in_channels=6, out_channels=16, kernel_size=(5, 5))
+        self.conv3 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=(5, 5))
+        self.pool = nn.MaxPool2d(kernel_size=(2, 2))
+        self.fc1 = nn.Linear(in_features=32 * 60 * 124, out_features=256)
+        self.fc2 = nn.Linear(in_features=256, out_features=16)
+        self.fc3 = nn.Linear(16, 2)
+
+        if freeze_base_model:
+            for param in self.base.parameters():
+                param.requires_grad = False
+
+    def forward(self, inputs, masks):
+        outputs = self.base(input_ids=inputs, attention_mask=masks)
+        final_hidden_state = outputs[0].reshape(-1, 1, SEQ_LENGTH, self.base.config.hidden_size)
+        out2 = self.pool(F.relu(self.conv1(final_hidden_state)))
+        out2 = self.pool(F.relu(self.conv2(out2)))
+        out2 = self.pool(F.relu(self.conv3(out2)))
+        out2 = torch.flatten(out2, 1)
+        out2 = F.dropout(out2, p=0.5)
+        out2 = F.relu(self.fc1(out2))
+        out2 = F.dropout(out2, p=0.2)
+        out2 = F.relu(self.fc2(out2))
+        logits = self.fc3(out2)
+        return logits
+
+    def configure_optimizers(self):
+
+        optimizer = torch.optim.AdamW(self.parameters(), lr=2e-5)  # correct_bias=False)
+        scheduler = transformers.get_linear_schedule_with_warmup(optimizer,
+                                                                 num_warmup_steps=0,
+                                                                 num_training_steps=500)
+
+        return [optimizer], [scheduler]
+
+    def training_step(self, batch, batch_idx):
+        (inputs, masks), labels = batch
+        logits = self.forward(inputs, masks)
+        loss = criterion(logits, labels)
+        return loss
+
+    def train_dataloader(self):
+        return train_loader
+
+    def val_dataloader(self):
+        return val_loader
+
+    def test_dataloader(self):
+        return test_loader
+
