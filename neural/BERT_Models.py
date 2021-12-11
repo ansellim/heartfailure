@@ -3,6 +3,7 @@
 import logging
 import re
 from collections import Counter
+
 import nltk
 import numpy as np
 import pandas as pd
@@ -13,7 +14,8 @@ import transformers
 from nltk import word_tokenize, sent_tokenize
 from nltk.corpus import wordnet
 from nltk.stem import WordNetLemmatizer
-from pytorch_lightning import Trainer
+from pytorch_lightning import Trainer, seed_everything
+from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.core.lightning import LightningModule
 from sklearn.feature_extraction.text import TfidfVectorizer
 from torch.utils.data import DataLoader
@@ -21,6 +23,9 @@ from transformers import BertTokenizer, BertModel
 
 nltk.download('wordnet')
 nltk.download('punkt')
+
+seed_everything(42, workers=True)
+
 
 def set_global_logging_level(level=logging.ERROR, prefices=[""]):
     """
@@ -38,6 +43,7 @@ def set_global_logging_level(level=logging.ERROR, prefices=[""]):
         if re.match(prefix_re, name):
             logging.getLogger(name).setLevel(level)
 
+
 set_global_logging_level(logging.CRITICAL, ["transformers.tokenization"])
 
 # Load dataset
@@ -45,6 +51,7 @@ set_global_logging_level(logging.CRITICAL, ["transformers.tokenization"])
 train = pd.read_csv("./datasets/train.csv")[['text', 'label']]
 val = pd.read_csv("./datasets/val.csv")[['text', 'label']]
 test = pd.read_csv("./datasets/test.csv")[['text', 'label']]
+
 
 # Basic preprocessing of dataset
 
@@ -248,6 +255,7 @@ def preprocess(text):
     attention_masks = encoded['attention_mask']
     return input_ids, attention_masks
 
+
 # Wrap the train/validation/test sets in torch Dataset classes
 
 class HeartFailureDataset(torch.utils.data.Dataset):
@@ -281,6 +289,7 @@ def collate_batch(batch):
     labels = torch.LongTensor(labels)
     return (inputs, masks), labels
 
+
 # Create dataloaders
 
 train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch,
@@ -290,6 +299,7 @@ test_loader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False, collate
                          num_workers=NUM_WORKERS)
 
 criterion = nn.CrossEntropyLoss()
+
 
 ############## BERT + MULTI-LAYER PERCEPTRON (FULLY CONNECTED LAYERS) ######################
 
@@ -337,18 +347,31 @@ class BertMLP(LightningModule):
     def test_dataloader(self):
         return test_loader
 
+
 # Train/val/test
 
-model = BertMLP(freeze_base_model=True)
+checkpoint_callback = ModelCheckpoint(dirpath='./',
+                                      monitor='val_acc',
+                                      save_top_k=-1,
+                                      mode='max',
+                                      filename='{epoch}-{step}-{val_acc:.2f}',
+                                      auto_insert_metric_name=True,
+                                      save_weights_only=True,
+                                      every_n_epochs=1)
 
-trainer = Trainer(max_epochs = MAX_NUM_EPOCHS,
+mlp = BertMLP(freeze_base_model=True)
+
+trainer = Trainer(max_epochs=MAX_NUM_EPOCHS,
                   check_val_every_n_epoch=1,
                   deterministic=True,
                   accelerator='auto',
                   devices='auto',
-                  fast_dev_run=True)
-trainer.fit(model)
-trainer.test(ckpt_path="best")
+                  fast_dev_run=True,
+                  callbacks=[checkpoint_callback])
+
+trainer.fit(mlp)
+trainer.test(ckpt_path="best", verbose=True)
+
 
 ################# BERT + CONVOLUTIONAL NEURAL NETWORK #########################
 
@@ -406,3 +429,25 @@ class BertCNN(LightningModule):
     def test_dataloader(self):
         return test_loader
 
+
+checkpoint_callback_cnn = ModelCheckpoint(dirpath='./',
+                                          monitor='val_acc',
+                                          save_top_k=-1,
+                                          mode='max',
+                                          filename='{epoch}-{step}-{val_acc:.2f}',
+                                          auto_insert_metric_name=True,
+                                          save_weights_only=True,
+                                          every_n_epochs=1)
+
+cnn = BertMLP(freeze_base_model=True)
+
+trainer_cnn = Trainer(max_epochs=MAX_NUM_EPOCHS,
+                      check_val_every_n_epoch=1,
+                      deterministic=True,
+                      accelerator='auto',
+                      devices='auto',
+                      fast_dev_run=True,
+                      callbacks=[checkpoint_callback_cnn])
+
+trainer_cnn.fit(cnn)
+trainer_cnn.test(ckpt_path="best", verbose=True)
