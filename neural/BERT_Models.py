@@ -4,9 +4,8 @@
 
 import logging
 import re
-from collections import Counter
+from datetime import datetime
 
-import nltk
 import numpy as np
 import pandas as pd
 import torch
@@ -14,21 +13,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 import transformers
 from nltk import word_tokenize, sent_tokenize
-from nltk.corpus import wordnet
-from nltk.stem import WordNetLemmatizer
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.core.lightning import LightningModule
 from sklearn.feature_extraction.text import TfidfVectorizer
 from torch.utils.data import DataLoader
 from transformers import BertTokenizer, BertModel
-from datetime import datetime
 
-nltk.download('wordnet')
-nltk.download('punkt')
+from utils import apply_basic_preprocessing
 
 seed_everything(42, workers=True)
-
 
 def set_global_logging_level(level=logging.ERROR, prefices=[""]):
     """
@@ -51,105 +45,14 @@ set_global_logging_level(logging.CRITICAL, ["transformers.tokenization"])
 
 # Load dataset
 
-print("Load dataset",datetime.now().strftime("%H:%M:%S"))
-train = pd.read_csv("../preprocessing/data/train.csv")[['text', 'label']]
-val = pd.read_csv("../preprocessing/data/val.csv")[['text', 'label']]
-test = pd.read_csv("../preprocessing/data/test.csv")[['text', 'label']]
-
+print("Load dataset", datetime.now().strftime("%H:%M:%S"))
+train = pd.read_csv("../preprocessing/processed_data/train.csv")[['text', 'label']]
+val = pd.read_csv("../preprocessing/processed_data/val.csv")[['text', 'label']]
+test = pd.read_csv("../preprocessing/processed_data/test.csv")[['text', 'label']]
 
 # Basic preprocessing of dataset
 
-def lower_case(text):
-    '''
-    Convert text to lowercase
-    '''
-    return text.lower()
-
-
-def clinical_text_preprocessing(text):
-    '''
-    Remove unnecessary/uninfomrative words, headers
-    '''
-    text = re.sub('admission date:', '', text)
-    text = re.sub('discharge date:', '', text)
-    text = re.sub('date of birth:', '', text)
-    text = re.sub('service:', '', text)
-    text = re.sub('sex:', '', text)
-    text = re.sub('admission', '', text)
-    text = re.sub('allergies:', '', text)
-    text = re.sub('attending:', '', text)
-    text = re.sub('chief complaint:', '', text)
-    text = re.sub('major surgical or invasive procedure:', 'procedure', text)
-    text = re.sub('\?\?\?\?\?\?', '', text)
-    text = re.sub('discharge medications:', 'medications', text)
-    text = re.sub('discharge disposition:', 'disposition', text)
-    text = re.sub('discharge', '', text)
-    text = re.sub('completed by:', '', text)
-    text = re.sub('\\[(.*?)\\]', '', text)
-    text = re.sub(r'[^\x00-\x7F]+', '', text)
-    text = re.sub('--|__|==', '', text)
-    text = re.sub('also', '', text)
-    return text
-
-
-def remove_short_words(text):
-    '''
-    Remove overly short words which may not have much meaning
-    '''
-    text = ' '.join([i for i in text.split() if len(i) >= 3])
-    return text
-
-
-wnl = WordNetLemmatizer()
-
-
-def get_pos(word):
-    '''
-    For each word, use WordNet to get the most common synonym (which may be itself)
-    '''
-    w_synsets = wordnet.synsets(word)
-    pos_counts = Counter()
-    pos_counts["n"] = len([item for item in w_synsets if item.pos() == "n"])
-    pos_counts["v"] = len([item for item in w_synsets if item.pos() == "v"])
-    pos_counts["a"] = len([item for item in w_synsets if item.pos() == "a"])
-    pos_counts["r"] = len([item for item in w_synsets if item.pos() == "r"])
-    most_common_pos_list = pos_counts.most_common(3)
-    return most_common_pos_list[0][0]
-
-
-def lemmatization(text):
-    '''
-    Lemmatize the text using the most common synonyms of words
-    '''
-    return wnl.lemmatize(text, get_pos(text))
-
-
-def remove_numeric(text):
-    text = re.sub('[0-9]', ' ', text)
-    return text
-
-
-def remove_punctuations(text):
-    # remove punctuation and enter
-    new_text = re.sub('[!"\\#\\$%\\&\'\\(\\)\\*\\+,\\-/:;<=>\\?@\\[\\\\\\]\\^_`\\{\\|\\}\\~]', '', text)
-    new_text = new_text.replace('\n', ' ')
-    return new_text
-
-
-def apply_basic_preprocessing(data_df):
-    '''
-    Apply the preprocessing steps
-    '''
-    _int_data_df = data_df.copy()
-    _int_data_df['text'] = _int_data_df['text'].apply(lower_case)
-    _int_data_df['text'] = _int_data_df['text'].apply(clinical_text_preprocessing)
-    _int_data_df['text'] = _int_data_df['text'].apply(remove_short_words)
-    _int_data_df['text'] = _int_data_df['text'].apply(lemmatization)
-    _int_data_df['text'] = _int_data_df['text'].apply(remove_numeric)
-    _int_data_df['text'] = _int_data_df['text'].apply(remove_punctuations)
-    return _int_data_df
-
-print("Basic preprocessing of dataset",datetime.now().strftime("%H:%M:%S"))
+print("Basic preprocessing of dataset", datetime.now().strftime("%H:%M:%S"))
 train = apply_basic_preprocessing(train)
 val = apply_basic_preprocessing(val)
 test = apply_basic_preprocessing(test)
@@ -394,7 +297,9 @@ trainer = Trainer(max_epochs=MAX_NUM_EPOCHS,
                   callbacks=[checkpoint_callback])
 
 trainer.fit(mlp)
-trainer.test(ckpt_path="best", verbose=True)
+
+
+# trainer.test(ckpt_path="best", verbose=True)
 
 
 ################# BERT + CONVOLUTIONAL NEURAL NETWORK #########################
@@ -479,4 +384,4 @@ trainer_cnn = Trainer(max_epochs=MAX_NUM_EPOCHS,
                       callbacks=[checkpoint_callback_cnn])
 
 trainer_cnn.fit(cnn)
-trainer_cnn.test(ckpt_path="best", verbose=True)
+# trainer_cnn.test(ckpt_path="best", verbose=True)
