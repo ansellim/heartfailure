@@ -1,10 +1,10 @@
 -- Daniel Tan
 -- --- Counts of numbers of patients in the database
 SELECT COUNT(DISTINCT a.subject_id), --46530
-       COUNT(DISTINCT a.hadm_id)     -- 58976
+       COUNT(DISTINCT a.hadm_id)     --58976
 FROM `physionet-data.mimiciii_clinical.admissions` a
 
-SELECT COUNT(*),                     -- 651047
+SELECT COUNT(*),                     --651047
        COUNT(DISTINCT d.subject_id), --46520
        COUNT(DISTINCT d.hadm_id)     --58976
 FROM `physionet-data.mimiciii_clinical.diagnoses_icd` d
