@@ -26,7 +26,7 @@ Run the following commands in the root of the project folder to create a conda e
 
 `conda env create -f environment.yml`
 
-Be sure to activate this environment by typing the following code:
+Be sure to activate this environment.
 
 `conda activate heartfailure`
 
@@ -80,14 +80,19 @@ The dataset will be downloaded into your copy of this repository.
 
 ## Run our code
 
-The codebase is split into two parts: the machine learning approach and the deep learning approach. The machine learning (ML) approach is in the `ml` folder whereas the deep learning (DL) approach is in the `neural` folder.
+### Data preprocessing
 
-### Run the ML workflow
+Preprocessing was done in BigQuery. The SQL and Python scripts we used for exploratory data analysis and preprocessing are in the `preprocessing` folder.
+
+### Modeling
+
+The predictive modeling part of the codebase is split into two parts: the machine learning approach and the deep learning approach. The machine learning (ML) approach is in the `ml` folder whereas the deep learning (DL) approach is in the `neural` folder.
+
+#### Run the ML workflow
 * Main script can be found in ml/main.py to run entire workflow
 * Data dependencies should be available in 
     1. ml/datasets
     2. pre-processing/dataset_lemma_avg_v3
 
-### Run the DL workflow
-
-The code for running the deep learning 
+#### Run the DL workflow
+The code for running the deep learning approach is in the `neural` folder.

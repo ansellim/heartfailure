@@ -187,7 +187,7 @@ base_model = BertModel.from_pretrained(model_name, return_dict=False)
 # Specify Deep Learning hyperparameters and other aspects of training configuration
 
 SEQ_LENGTH = 512
-MAX_NUM_EPOCHS = 10
+MAX_NUM_EPOCHS = 5
 BATCH_SIZE = 12
 LEARNING_RATE = 5e-5
 NUM_WORKERS = 6
