@@ -1,7 +1,0 @@
-MIMIC-IV
-https://physionet.org/content/mimiciv/0.4/
-"We are delighted to announce that MIMIC-IV has been published on PhysioNet! MIMIC-IV, the latest version of MIMIC, is a database comprising comprehensive clinical information on hospital stays for patients admitted to a tertiary academic medical center in Boston, MA, USA.
-Major changes from MIMIC-III include: (1) a modular structure that links core hospital data to multiple data sources, including chest x-ray images; (2) an approach to date shifting that provides approximate year of admission; (3) new sources of data; such as the electronic medicine administration record."
-
-
-
