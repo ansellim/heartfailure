@@ -372,6 +372,8 @@ class BertMLP(LightningModule):
 
 # Train/val/test
 
+print("Start BERT + MLP: training/validation/testing",datetime.now().strftime("%H:%M:%S"))
+
 checkpoint_callback = ModelCheckpoint(dirpath='./',
                                       monitor='val_acc',
                                       save_top_k=-1,
@@ -454,6 +456,8 @@ class BertCNN(LightningModule):
         return test_loader
 
 # Train/val/test
+
+print("Start BERT + CNN: training/validation/testing",datetime.now().strftime("%H:%M:%S"))
 
 checkpoint_callback_cnn = ModelCheckpoint(dirpath='./',
                                           monitor='val_acc',
