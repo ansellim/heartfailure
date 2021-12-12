@@ -1,38 +1,47 @@
-WITH negative_records as (
-    SELECT 
-        n.SUBJECT_ID,
-        count(distinct n.CHARTDATE) as num_days,String_agg(d.ICD9_CODE) ICD_Code_String,
-        FARM_FINGERPRINT(cast(n.SUBJECT_ID as string)) Hashing
+WITH negative_records AS (
+    SELECT n.subject_id,
+           COUNT(DISTINCT n.chartdate) AS                 num_days,
+           string_agg(d.icd9_code)                        icd_code_string,
+           farm_fingerprint(CAST(n.subject_id AS string)) hashing
     FROM `physionet-data.mimiciii_notes.noteevents` n
-    JOIN `physionet-data.mimiciii_clinical.diagnoses_icd` d ON 
-        (n.SUBJECT_ID=n.SUBJECT_ID AND n.HADM_ID=d.HADM_ID)
-    WHERE 
-        n.ISERROR is null
-    GROUP BY n.SUBJECT_ID 
-    having String_agg(d.ICD9_CODE) not like '%,428%' and String_agg(d.ICD9_CODE) not like '428%' 
-), no_prior_HF_patients as (
-    select A.ADMITTIME,A.SUBJECT_ID,A.HADM_ID, String_agg(B.ICD9_CODE) as ICD9_CODE_LIST,
-    case when String_agg(B.ICD9_CODE) like '%,428%' then 1 else 0 end as HFDetectedFlag, E.Hashing
-    from  `physionet-data.mimiciii_clinical.admissions`  A 
-    join `physionet-data.mimiciii_clinical.diagnoses_icd` B on A.SUBJECT_ID =B.SUBJECT_ID and A.HADM_ID=B.HADM_ID
-    join `physionet-data.mimiciii_clinical.d_icd_diagnoses` C on B.ICD9_CODE = C.ICD9_CODE
-    join negative_records E on A.SUBJECT_ID =E.SUBJECT_ID  -- get the negative  record patients
-    group by A.ADMITTIME,A.SUBJECT_ID,A.HADM_ID, E.Hashing
-    HAVING HFDetectedFlag = 0
-    order by E.Hashing limit 4000 -- limit number of records to somewhat the same as positive record we have
-), raw_training_data as (
-    select P.*,N.category,N.text 
-    from no_prior_HF_patients P
-    join `physionet-data.mimiciii_notes.noteevents` N 
-        on P.SUBJECT_ID=N.SUBJECT_ID and P.HADM_ID=N.HADM_ID
-), pre_processed_training_data as (
-    select *,
-    RegexP_REPLACE( -- remove commas
-        RegexP_REPLACE( -- remove redacted
-            LOWER(text), r"\[\*\*(.*)\*\*\]",""),
-        r",","")  as clean_text
-    from raw_training_data 
-    where category = "Discharge summary"
+             JOIN `physionet-data.mimiciii_clinical.diagnoses_icd` d ON
+        (n.subject_id = n.subject_id AND n.hadm_id = d.hadm_id)
+    WHERE n.iserror IS NULL
+    GROUP BY n.subject_id
+    HAVING string_agg(d.icd9_code) NOT LIKE '%,428%'
+       AND string_agg(d.icd9_code) NOT LIKE '428%'
 )
+   , no_prior_hf_patients AS (
+    SELECT a.admittime,
+           a.subject_id,
+           a.hadm_id,
+           string_agg(b.icd9_code)                                           AS icd9_code_list,
+           CASE WHEN string_agg(b.icd9_code) LIKE '%,428%' THEN 1 ELSE 0 END AS hfdetectedflag,
+           e.hashing
+    FROM `physionet-data.mimiciii_clinical.admissions` a
+             JOIN `physionet-data.mimiciii_clinical.diagnoses_icd` b
+                  ON a.subject_id = b.subject_id AND a.hadm_id = b.hadm_id
+             JOIN `physionet-data.mimiciii_clinical.d_icd_diagnoses` c ON b.icd9_code = c.icd9_code
+             JOIN negative_records e ON a.subject_id = e.subject_id -- get the negative  record patients
+    GROUP BY a.admittime, a.subject_id, a.hadm_id, e.hashing
+    HAVING hfdetectedflag = 0
+    ORDER BY e.hashing
+    limit 4000 -- limit number of records to somewhat the same as positive record we have
+    )
+   , raw_training_data AS (
+SELECT P.*, N.category, N.text
+FROM no_prior_HF_patients P
+    JOIN `physionet-data.mimiciii_notes.noteevents` N
+ON P.SUBJECT_ID=N.SUBJECT_ID AND P.HADM_ID=N.HADM_ID
+    ), pre_processed_training_data AS (
+SELECT *,
+    RegexP_REPLACE( -- remove commas
+    RegexP_REPLACE( -- remove redacted
+    LOWER (text), r "\[\*\*(.*)\*\*\]", ""),
+    r ",", "") AS clean_text
+FROM raw_training_data
+WHERE category = "Discharge summary"
+    )
 
-select *  from pre_processed_training_data;
+SELECT *
+FROM pre_processed_training_data;
