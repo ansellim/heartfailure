@@ -1,3 +1,5 @@
+# Ansel Lim and George Seah
+
 # Dependencies
 
 import logging
@@ -20,6 +22,7 @@ from pytorch_lightning.core.lightning import LightningModule
 from sklearn.feature_extraction.text import TfidfVectorizer
 from torch.utils.data import DataLoader
 from transformers import BertTokenizer, BertModel
+from datetime import datetime
 
 nltk.download('wordnet')
 nltk.download('punkt')
@@ -48,6 +51,7 @@ set_global_logging_level(logging.CRITICAL, ["transformers.tokenization"])
 
 # Load dataset
 
+print("Load dataset",datetime.now().strftime("%H:%M:%S"))
 train = pd.read_csv("./datasets/train.csv")[['text', 'label']]
 val = pd.read_csv("./datasets/val.csv")[['text', 'label']]
 test = pd.read_csv("./datasets/test.csv")[['text', 'label']]
@@ -56,12 +60,15 @@ test = pd.read_csv("./datasets/test.csv")[['text', 'label']]
 # Basic preprocessing of dataset
 
 def lower_case(text):
+    '''
+    Convert text to lowercase
+    '''
     return text.lower()
 
 
 def clinical_text_preprocessing(text):
     '''
-    Remove unnecessary words, headers
+    Remove unnecessary/uninfomrative words, headers
     '''
     text = re.sub('admission date:', '', text)
     text = re.sub('discharge date:', '', text)
@@ -111,6 +118,9 @@ def get_pos(word):
 
 
 def lemmatization(text):
+    '''
+    Lemmatize the text using the most common synonyms of words
+    '''
     return wnl.lemmatize(text, get_pos(text))
 
 
@@ -139,7 +149,7 @@ def apply_basic_preprocessing(data_df):
     _int_data_df['text'] = _int_data_df['text'].apply(remove_punctuations)
     return _int_data_df
 
-
+print("Basic preprocessing of dataset",datetime.now().strftime("%H:%M:%S"))
 train = apply_basic_preprocessing(train)
 val = apply_basic_preprocessing(val)
 test = apply_basic_preprocessing(test)
@@ -147,7 +157,9 @@ test = apply_basic_preprocessing(test)
 train_texts = train['text']
 num_train_texts = len(train_texts)
 
-# Additional preprocessing - remove exceedingly common and exceedingly uncommon words
+# Additional preprocessing - remove overly common and overly uncommon words
+
+print("Remove overly common and overly uncommon words",datetime.now().strftime("%H:%M:%S"))
 
 tfidf = TfidfVectorizer(tokenizer=None, min_df=0.1, max_df=0.7)
 tfidf.fit_transform(train_texts)
@@ -164,14 +176,16 @@ train['shortened_text'] = train.apply(lambda row: shorten_text(row['text'], tfid
 val['shortened_text'] = val.apply(lambda row: shorten_text(row['text'], tfidf.vocabulary_), axis=1)
 test['shortened_text'] = test.apply(lambda row: shorten_text(row['text'], tfidf.vocabulary_), axis=1)
 
-vectorizer = TfidfVectorizer(lowercase=False, use_idf=True)
-vectorizer.fit_transform(train_texts)
-idf = vectorizer.idf_
-indices_sorted_by_idf = sorted(range(len(idf)), key=lambda key: idf[key])
-idf_sorted = idf[indices_sorted_by_idf]
-tokens_by_idf = np.array(vectorizer.get_feature_names_out())[indices_sorted_by_idf]
+# Get a base model which we will finetune; we will use a HuggingFace BERT model
 
-# Specify hyperparameters and other aspects of training configuration
+print("Get base model",datetime.now().strftime("%H:%M:%S"))
+
+model_name = "bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16"
+tokenizer = BertTokenizer.from_pretrained(model_name)
+base_model = BertModel.from_pretrained(model_name, return_dict=False)
+
+# Specify Deep Learning hyperparameters and other aspects of training configuration
+
 SEQ_LENGTH = 512
 MAX_NUM_EPOCHS = 10
 BATCH_SIZE = 12
@@ -179,13 +193,16 @@ LEARNING_RATE = 5e-5
 NUM_WORKERS = 6
 MULTIPLIER = 10
 
-# Get a huggingface BERT model which we will finetune
-
-model_name = "bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16"
-tokenizer = BertTokenizer.from_pretrained(model_name)
-base_model = BertModel.from_pretrained(model_name, return_dict=False)
-
 # Modify the default tokenizer by adding tokens from the corpus
+
+print("Add corpus-specific tokens to tokenizer",datetime.now().strftime("%H:%M:%S"))
+
+vectorizer = TfidfVectorizer(lowercase=False, use_idf=True)
+vectorizer.fit_transform(train_texts)
+idf = vectorizer.idf_
+indices_sorted_by_idf = sorted(range(len(idf)), key=lambda key: idf[key])
+idf_sorted = idf[indices_sorted_by_idf]
+tokens_by_idf = np.array(vectorizer.get_feature_names_out())[indices_sorted_by_idf]
 
 threshold = np.percentile(idf_sorted, 70)
 new_tokens = []
@@ -196,7 +213,10 @@ for token, idf in zip(tokens_by_idf, idf_sorted):
 tokenizer.add_tokens(new_tokens)
 base_model.resize_token_embeddings(len(tokenizer))
 
-# Shuffle sentences. Sentences containing key words identified by our ML models (in particular, XGBoost) as having high feature importance are placed nearer the front of the document.
+# Shuffle sentences: sentences containing key words identified by our ML models (in particular, XGBoost)
+# as having high feature importance are placed nearer the front of the document
+
+print("Shuffle sentences",datetime.now().strftime("%H:%M:%S"))
 
 KEY_WORD_LIST = ['disp', 'aortic', 'refill', 'status', 'hospital', 'unit', 'blood', 'sig', 'stable', 'pain',
                  'valve', 'congestive', 'pressure', 'day', 'medication', 'normal', 'patient', 'release', 'drug',
@@ -237,26 +257,9 @@ shuffled = pd.DataFrame({'label': new_labels, 'text': new_texts})
 train = pd.concat([train, shuffled])
 train.reset_index(inplace=True)
 
+# Wrap the train/validation/test sets in torch Dataset classes, and then create Dataloaders to wrap around these classes
 
-def preprocess(text):
-    '''
-    @ param text: a document (string) that is to be processed
-    @return input_ids: tensor of token IDs, fed into the network
-    @return attention_masks: tensor of indices which the network is to pay attention to
-    '''
-    encoded = tokenizer.encode_plus(text=text,
-                                    add_special_tokens=True,
-                                    max_length=SEQ_LENGTH,
-                                    padding='max_length',
-                                    truncation=True,
-                                    return_attention_mask=True
-                                    )
-    input_ids = encoded['input_ids']
-    attention_masks = encoded['attention_mask']
-    return input_ids, attention_masks
-
-
-# Wrap the train/validation/test sets in torch Dataset classes
+print("Create torch datasets & dataloaders",datetime.now().strftime("%H:%M:%S"))
 
 class HeartFailureDataset(torch.utils.data.Dataset):
     def __init__(self, dataframe):
@@ -276,6 +279,22 @@ train_set = HeartFailureDataset(train)
 val_set = HeartFailureDataset(val)
 test_set = HeartFailureDataset(test)
 
+def preprocess(text):
+    '''
+    @ param text: a document (string) that is to be processed
+    @return input_ids: tensor of token IDs, fed into the network
+    @return attention_masks: tensor of indices which the network is to pay attention to
+    '''
+    encoded = tokenizer.encode_plus(text=text,
+                                    add_special_tokens=True,
+                                    max_length=SEQ_LENGTH,
+                                    padding='max_length',
+                                    truncation=True,
+                                    return_attention_mask=True
+                                    )
+    input_ids = encoded['input_ids']
+    attention_masks = encoded['attention_mask']
+    return input_ids, attention_masks
 
 def collate_batch(batch):
     inputs, masks, labels = [], [], []
@@ -290,8 +309,6 @@ def collate_batch(batch):
     return (inputs, masks), labels
 
 
-# Create dataloaders
-
 train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch,
                           num_workers=NUM_WORKERS)
 val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch, num_workers=NUM_WORKERS)
@@ -300,10 +317,15 @@ test_loader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False, collate
 
 criterion = nn.CrossEntropyLoss()
 
+##########################################
+##########################################
+######## THE ACTUAL DEEP LEARNING ########
+##########################################
+##########################################
 
 ############## BERT + MULTI-LAYER PERCEPTRON (FULLY CONNECTED LAYERS) ######################
 
-# Define neural network architecture and define the dataloders within the model definition
+# Define neural network architecture and define the dataloaders within the class definition
 
 class BertMLP(LightningModule):
     def __init__(self, freeze_base_model=True):
@@ -375,6 +397,8 @@ trainer.test(ckpt_path="best", verbose=True)
 
 ################# BERT + CONVOLUTIONAL NEURAL NETWORK #########################
 
+# Define neural network architecture and define the dataloaders within the class definition
+
 class BertCNN(LightningModule):
     def __init__(self, freeze_base_model=True):
         super(BertCNN, self).__init__()
@@ -429,6 +453,7 @@ class BertCNN(LightningModule):
     def test_dataloader(self):
         return test_loader
 
+# Train/val/test
 
 checkpoint_callback_cnn = ModelCheckpoint(dirpath='./',
                                           monitor='val_acc',
