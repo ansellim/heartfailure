@@ -1,3 +1,4 @@
+-- George Seah
 WITH negative_records AS (
     SELECT n.subject_id,
            COUNT(DISTINCT n.chartdate) AS                 num_days,

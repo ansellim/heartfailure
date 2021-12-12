@@ -1,8 +1,8 @@
+# George Seah
 # Requires gensim and fasttext
 # Please download the clinical bert fast text word embedding here
 # https://github.com/kexinhuang12345/clinicalBERT#gensim-word2vec-and-fasttext-models
 # Daniel's data are pre-downloaded as csv and named as "hf_clinical_notes.csv"
-
 
 import pickle
 from collections import Counter
@@ -22,20 +22,17 @@ import re, string
 from sklearn.model_selection import train_test_split
 import scipy
 
-#this will take 30 min++ to download
-fasttext.util.download_model('en', if_exists='ignore')  # English
+# this will take 30 min++ to download
+fasttext.util.download_model('en', if_exists='ignore')
 
-#Update this portion to your local 
+# Update this portion to your local
 m1 = KeyedVectors.load(r'C:\Users\JSEAH\CSE6250_Project\pre-processing\fasttext.model')
-POSTIVE_DATA_PATH  = r'C:\Users\JSEAH\CSE6250_Project\hf_positives.csv'
+POSTIVE_DATA_PATH = r'C:\Users\JSEAH\CSE6250_Project\hf_positives.csv'
 NEGATIVE_DATA_PATH = r'C:\Users\JSEAH\CSE6250_Project\hf_negative.csv'
 
-
-#loading the model can take some time
+# loading the model can take some time
 m2 = fasttext.load_model('cc.en.300.bin')
 fasttext.util.reduce_model(m2, 100)
-
-
 
 def get_vector(word,m1,m2):
     if word in m1.wv.key_to_index:
