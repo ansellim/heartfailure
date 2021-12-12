@@ -52,9 +52,9 @@ set_global_logging_level(logging.CRITICAL, ["transformers.tokenization"])
 # Load dataset
 
 print("Load dataset",datetime.now().strftime("%H:%M:%S"))
-train = pd.read_csv("./datasets/train.csv")[['text', 'label']]
-val = pd.read_csv("./datasets/val.csv")[['text', 'label']]
-test = pd.read_csv("./datasets/test.csv")[['text', 'label']]
+train = pd.read_csv("../preprocessing/data/train.csv")[['text', 'label']]
+val = pd.read_csv("../preprocessing/data/val.csv")[['text', 'label']]
+test = pd.read_csv("../preprocessing/data/test.csv")[['text', 'label']]
 
 
 # Basic preprocessing of dataset
