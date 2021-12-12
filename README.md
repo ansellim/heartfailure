@@ -86,13 +86,22 @@ Preprocessing was done in BigQuery. The SQL and Python scripts we used for explo
 
 ### Modeling
 
-The predictive modeling part of the codebase is split into two parts: the machine learning approach and the deep learning approach. The machine learning (ML) approach is in the `ml` folder whereas the deep learning (DL) approach is in the `neural` folder.
+The predictive modeling part of the codebase is split into two parts: the machine learning approach and the deep
+learning approach. The machine learning (ML) approach is in the `ml` folder whereas the deep learning (DL) approach is
+in the `neural` folder.
 
 #### Run the ML workflow
+
 * Main script can be found in ml/main.py to run entire workflow
-* Data dependencies should be available in 
-    1. ml/datasets
-    2. pre-processing/dataset_lemma_avg_v3
+* Data dependencies should be available in
+  1. ml/datasets
+  2. pre-processing/dataset_lemma_avg_v3
 
 #### Run the DL workflow
+
 The code for running the deep learning approach is in the `neural` folder.
+
+Important instruction for `simple_RNN.py`: Prior to running this code, you should have downloaded a FastText model for
+Clinical Notes from the OneDrive or Google Drive link located at this Github
+repository: https://github.com/kexinhuang12345/clinicalBERT#gensim-word2vec-and-fasttext-models. Please ensure that this
+model is downloaded into the `./neural` subdirectory.
