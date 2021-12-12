@@ -105,7 +105,8 @@ def note_to_vec(input_note):
     # Convert each text into a vector
     # Append them into a matrix of n x 100, where n = number of words in input_notes
     word_list = [get_vector(i, m1, m2) for i in input_note.split()]
-    return np.array(word_list)
+
+    return word_list
 
 
 def pad_seq_array(seq_arrays, max_length):
@@ -138,6 +139,8 @@ for df in [train, val, test]:
     for function in [remove_punctuations, lower_case, stopword_filter, Nchar_filter, remove_non_essential_words,
                      lemmatization, remove_numeric]:
         df['text'] = df['text'].apply(function)
+
+#### SOME CODE SHOULD GO HERE
 
 train['text'] = train.apply(lambda x: x['text'][:MAX_SEQUENCE_LENGTH])
 train['val'] = val.apply(lambda x: x['text'][:MAX_SEQUENCE_LENGTH])
