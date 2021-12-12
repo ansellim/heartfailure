@@ -277,7 +277,7 @@ class BertMLP(LightningModule):
 
 print("Start BERT + MLP: training/validation/testing",datetime.now().strftime("%H:%M:%S"))
 
-checkpoint_callback = ModelCheckpoint(dirpath='./',
+checkpoint_callback = ModelCheckpoint(dirpath='./mlp',
                                       monitor='val_acc',
                                       save_top_k=-1,
                                       mode='max',
@@ -298,8 +298,7 @@ trainer = Trainer(max_epochs=MAX_NUM_EPOCHS,
 
 trainer.fit(mlp)
 
-
-# trainer.test(ckpt_path="best", verbose=True)
+trainer.test(ckpt_path="best", verbose=True)
 
 
 ################# BERT + CONVOLUTIONAL NEURAL NETWORK #########################
@@ -364,7 +363,7 @@ class BertCNN(LightningModule):
 
 print("Start BERT + CNN: training/validation/testing",datetime.now().strftime("%H:%M:%S"))
 
-checkpoint_callback_cnn = ModelCheckpoint(dirpath='./',
+checkpoint_callback_cnn = ModelCheckpoint(dirpath='./cnn',
                                           monitor='val_acc',
                                           save_top_k=-1,
                                           mode='max',
@@ -384,4 +383,4 @@ trainer_cnn = Trainer(max_epochs=MAX_NUM_EPOCHS,
                       callbacks=[checkpoint_callback_cnn])
 
 trainer_cnn.fit(cnn)
-# trainer_cnn.test(ckpt_path="best", verbose=True)
+trainer_cnn.test(ckpt_path="best", verbose=True)

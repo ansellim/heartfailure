@@ -4,25 +4,16 @@
 # https://github.com/kexinhuang12345/clinicalBERT#gensim-word2vec-and-fasttext-models
 # Daniel's data are pre-downloaded as csv and named as "hf_clinical_notes.csv"
 
-import pickle
-from collections import Counter
-
-import fasttext.util
-import nltk
-import numpy as np
-import pandas as pd
-from gensim.models import KeyedVectors
-from nltk.corpus import stopwords
-from nltk.corpus import wordnet
-from nltk.stem import WordNetLemmatizer
 
 nltk.download('stopwords')
 nltk.download('wordnet')
-import re, string
-from sklearn.model_selection import train_test_split
-import scipy
+import re
+import string
 
-# this will take 30 min++ to download
+import scipy
+from sklearn.model_selection import train_test_split
+
+# This will take 30 min++ to download
 fasttext.util.download_model('en', if_exists='ignore')
 
 # Update this portion to your local
@@ -30,16 +21,16 @@ m1 = KeyedVectors.load(r'C:\Users\JSEAH\CSE6250_Project\pre-processing\fasttext.
 POSTIVE_DATA_PATH = r'C:\Users\JSEAH\CSE6250_Project\hf_positives.csv'
 NEGATIVE_DATA_PATH = r'C:\Users\JSEAH\CSE6250_Project\hf_negative.csv'
 
-# loading the model can take some time
+# Loading the model can take some time
 m2 = fasttext.load_model('cc.en.300.bin')
 fasttext.util.reduce_model(m2, 100)
 
 def get_vector(word,m1,m2):
     if word in m1.wv.key_to_index:
+        # Word found in fasttext
         w_ft_2_vec = m1.wv[word]
-
     else:
-        #print("word not found in clinical note FastText")
+        # Word not found in fasttext
         w_ft_2_vec = m2.get_word_vector(word)
     return w_ft_2_vec
 
@@ -178,27 +169,3 @@ def split_test_train_dataset(positive_data_path,negative_data_path):
     print(len(train_data), len(val_data), len(test_data), max_length)
     return train_data, val_data, test_data, max_length
 
-if __name__ == "__main__":
-    train_ds,val_ds,test_ds,max_length = split_test_train_dataset(POSTIVE_DATA_PATH,NEGATIVE_DATA_PATH)
-    print("train test data set split completed")
-    dataset_name_prefix = 'dataset.lemma_avg_v3'
-    #turn to false for the generic word embedding script
-    avg_flag=False
-
-    train_ids, train_labels, train_seqs = create_dataset(train_ds,max_length,avg_flag)
-    pickle.dump(train_ids, open(f"{dataset_name_prefix}.ids.train", 'wb'), pickle.HIGHEST_PROTOCOL)
-    pickle.dump(train_labels, open(f"{dataset_name_prefix}.labels.train", 'wb'), pickle.HIGHEST_PROTOCOL)
-    pickle.dump(train_seqs, open(f"{dataset_name_prefix}.seqs.train", 'wb'), pickle.HIGHEST_PROTOCOL)
-    print("train data set created")
-
-    val_ids, val_labels, val_seqs = create_dataset(val_ds,max_length,avg_flag)
-    pickle.dump(val_ids, open(f"{dataset_name_prefix}.ids.validation", 'wb'), pickle.HIGHEST_PROTOCOL)
-    pickle.dump(val_labels, open(f"{dataset_name_prefix}.labels.validation", 'wb'), pickle.HIGHEST_PROTOCOL)
-    pickle.dump(val_seqs, open(f"{dataset_name_prefix}.seqs.validation", 'wb'), pickle.HIGHEST_PROTOCOL)
-    print("val data set created")
-
-    test_ids, test_labels, test_seqs = create_dataset(test_ds,max_length,avg_flag)
-    pickle.dump(test_ids, open(f"{dataset_name_prefix}.ids.test", 'wb'), pickle.HIGHEST_PROTOCOL)
-    pickle.dump(test_labels, open(f"{dataset_name_prefix}.labels.test", 'wb'), pickle.HIGHEST_PROTOCOL)
-    pickle.dump(test_seqs, open(f"{dataset_name_prefix}.seqs.test", 'wb'), pickle.HIGHEST_PROTOCOL)
-    print("test data set created")
