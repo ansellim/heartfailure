@@ -107,31 +107,27 @@ def note_to_vec(input_note):
     word_list = [get_vector(i, m1, m2) for i in input_note.split()]
     return np.array(word_list)
 
-
-
 def pad_seq_array(seq_arrays,max_length):
-    #print(max_length)
     new_arrays = []
     for idx,seq in enumerate(seq_arrays):
         if idx %100 == 0:
-            print(idx, " note padding processed ")
+            pass
         length = len(seq)
         try:
             zero_matrix = np.zeros((max_length-length, 100))
             new_seq = np.vstack((seq,zero_matrix))
             new_seq_csr_matrix = scipy.sparse.csr_matrix(new_seq)
         except:
-            print("seq length is ",length,max_length)
+            pass
         new_arrays.append(new_seq_csr_matrix)
     return new_arrays
 
-#%%
 def create_dataset(grouped_df,max_length,avg=False):
     #convert each note to word embedding
     seq_arrays = []
     for idx,note in enumerate(grouped_df['text'].to_list()):
         if idx % 100==0:
-            print(idx,"notes embedding processed")
+            pass
         seq_arrays.append(note_to_vec(note))
     
     #pad it to same max_length x 100 matrix
@@ -146,8 +142,7 @@ def create_dataset(grouped_df,max_length,avg=False):
     
     outdf = pd.DataFrame({'encoding':padded_seq_arrays,'labels':labels}, columns=['encoding','labels'])
     return  outdf #padded_seq_arrays,labels
-#%%
-print(" method created")
+
 
 #%%
 # Perform preprocessing
@@ -170,15 +165,6 @@ for df in [train, val, test]:
 train = create_dataset(train,MAX_SEQUENCE_LENGTH)
 val = create_dataset(val,MAX_SEQUENCE_LENGTH)
 test = create_dataset(test,MAX_SEQUENCE_LENGTH)
-
-#%%
-train.head()
-
-#%%
-#%%
-#train['text'] = train.apply(lambda x: x['text'][:MAX_SEQUENCE_LENGTH])
-#val['text'] = val.apply(lambda x: x['text'][:MAX_SEQUENCE_LENGTH])
-#test['text'] = test.apply(lambda x: x['text'][:MAX_SEQUENCE_LENGTH])
 
 # Configuration for neural network training
 
