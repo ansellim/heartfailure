@@ -1,7 +1,7 @@
 # George Seah, Ansel Lim
 # Important: prior to running this code, you should have downloaded a FastText model for Clinical Notes from the OneDrive or Google Drive link located at this Github repository: https://github.com/kexinhuang12345/clinicalBERT#gensim-word2vec-and-fasttext-models.
 # Please ensure that this model is downloaded into the same directory at this code.
-
+#%%
 import re
 import string
 from collections import Counter
@@ -105,26 +105,51 @@ def note_to_vec(input_note):
     # Convert each text into a vector
     # Append them into a matrix of n x 100, where n = number of words in input_notes
     word_list = [get_vector(i, m1, m2) for i in input_note.split()]
+    return np.array(word_list)
 
-    return word_list
 
 
-def pad_seq_array(seq_arrays, max_length):
+def pad_seq_array(seq_arrays,max_length):
+    #print(max_length)
     new_arrays = []
-    for idx, seq in enumerate(seq_arrays):
-        if idx % 100 == 0:
-            print(idx, " note padding processed:")
+    for idx,seq in enumerate(seq_arrays):
+        if idx %100 == 0:
+            print(idx, " note padding processed ")
         length = len(seq)
         try:
-            zero_matrix = np.zeros((max_length - length, 100))
-            new_seq = np.vstack((seq, zero_matrix))
+            zero_matrix = np.zeros((max_length-length, 100))
+            new_seq = np.vstack((seq,zero_matrix))
             new_seq_csr_matrix = scipy.sparse.csr_matrix(new_seq)
         except:
-            print("seq length is:", length, max_length)
+            print("seq length is ",length,max_length)
         new_arrays.append(new_seq_csr_matrix)
     return new_arrays
 
+#%%
+def create_dataset(grouped_df,max_length,avg=False):
+    #convert each note to word embedding
+    seq_arrays = []
+    for idx,note in enumerate(grouped_df['text'].to_list()):
+        if idx % 100==0:
+            print(idx,"notes embedding processed")
+        seq_arrays.append(note_to_vec(note))
+    
+    #pad it to same max_length x 100 matrix
+    padded_seq_arrays=pad_seq_array(seq_arrays,max_length)
+    if avg==True:
+        #truncate to 4000 cover 95% of patient cases
+        truncated_length = 4000
+        padded_seq_arrays=[np.mean(i.toarray()[0:truncated_length],axis=0) for i in padded_seq_arrays]
+    del seq_arrays[:]
 
+    labels = grouped_df['label'].to_list()
+    
+    outdf = pd.DataFrame({'encoding':padded_seq_arrays,'labels':labels}, columns=['encoding','labels'])
+    return  outdf #padded_seq_arrays,labels
+#%%
+print(" method created")
+
+#%%
 # Perform preprocessing
 
 # Set maximum sequence length for Variable RNN model
@@ -140,11 +165,20 @@ for df in [train, val, test]:
                      lemmatization, remove_numeric]:
         df['text'] = df['text'].apply(function)
 
-#### SOME CODE SHOULD GO HERE
+#%%
+# create the dataset needed
+train = create_dataset(train,MAX_SEQUENCE_LENGTH)
+val = create_dataset(val,MAX_SEQUENCE_LENGTH)
+test = create_dataset(test,MAX_SEQUENCE_LENGTH)
 
-train['text'] = train.apply(lambda x: x['text'][:MAX_SEQUENCE_LENGTH])
-train['val'] = val.apply(lambda x: x['text'][:MAX_SEQUENCE_LENGTH])
-test['val'] = test.apply(lambda x: x['text'][:MAX_SEQUENCE_LENGTH])
+#%%
+train.head()
+
+#%%
+#%%
+#train['text'] = train.apply(lambda x: x['text'][:MAX_SEQUENCE_LENGTH])
+#val['text'] = val.apply(lambda x: x['text'][:MAX_SEQUENCE_LENGTH])
+#test['text'] = test.apply(lambda x: x['text'][:MAX_SEQUENCE_LENGTH])
 
 # Configuration for neural network training
 
@@ -168,12 +202,12 @@ class HeartFailureDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.labels)
 
+#the column name is renamed in the create_dataset method
+train_set = HeartFailureDataset(train['encoding'],train['labels'])
+val_set = HeartFailureDataset(val['encoding'],val['labels'])
+test_set = HeartFailureDataset(val['encoding'],val['labels'])
 
-train_set = HeartFailureDataset(train)
-val_set = HeartFailureDataset(val)
-test_set = HeartFailureDataset(test)
-
-
+#%%
 def to_tensors(batch):
     seqs_array = np.array([x[0] for x in batch])
     labels_array = np.array([x[1] for x in batch])
@@ -250,7 +284,7 @@ class MyVariableRNN(LightningModule):
 
     def test_dataloader(self):
         return test_loader
-
+#%%
 
 # Train/val/test
 
@@ -263,7 +297,8 @@ checkpoint_callback = ModelCheckpoint(dirpath='./rnn',
                                       save_weights_only=True,
                                       every_n_epochs=1)
 
-rnn = MyVariableRNN()
+num_features = 100
+rnn = MyVariableRNN(num_features)
 trainer = Trainer(max_epochs=NUM_EPOCHS,
                   check_val_every_n_epoch=1,
                   deterministic=True,
@@ -274,3 +309,5 @@ trainer = Trainer(max_epochs=NUM_EPOCHS,
                   )
 trainer.fit(rnn)
 trainer.test(ckpt_path="best", verbose=True)
+
+# %%
