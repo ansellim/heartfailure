@@ -1,22 +1,21 @@
-#Requires gensim and fasttext
-#Please download the clinical bert fast text word embedding here
-#https://github.com/kexinhuang12345/clinicalBERT#gensim-word2vec-and-fasttext-models
-#Daniel's data are pre-downloaded as csv and named as "hf_clinical_notes.csv"
+# Requires gensim and fasttext
+# Please download the clinical bert fast text word embedding here
+# https://github.com/kexinhuang12345/clinicalBERT#gensim-word2vec-and-fasttext-models
+# Daniel's data are pre-downloaded as csv and named as "hf_clinical_notes.csv"
 
 
+import pickle
+from collections import Counter
 
-from gensim.models import KeyedVectors
-from gensim.models.fasttext import load_facebook_model
-import fasttext
 import fasttext.util
+import nltk
 import numpy as np
 import pandas as pd
-import pickle
+from gensim.models import KeyedVectors
 from nltk.corpus import stopwords
 from nltk.corpus import wordnet
 from nltk.stem import WordNetLemmatizer
-from collections import Counter 
-import nltk
+
 nltk.download('stopwords')
 nltk.download('wordnet')
 import re, string
@@ -146,11 +145,12 @@ def create_dataset(grouped_df,max_length,avg=False):
 
 def split_test_train_dataset(positive_data_path,negative_data_path):
     positive_data = pd.read_csv(positive_data_path)
-    positive_data['hf_label']=1
+    positive_data['hf_label'] = 1
     negative_data = pd.read_csv(negative_data_path)
-    negative_data['hf_label']=0
+    negative_data['hf_label'] = 0
     data = positive_data.append(negative_data)
-    #clean up
+
+    # Clean up data
     data['cleaned_text_2'] = data['clean_text'].apply(remove_punctuations)
     data['cleaned_text_2'] = data['cleaned_text_2'].apply(lower_case)
     data['cleaned_text_2'] = data['cleaned_text_2'].apply(stopword_filter)
@@ -160,26 +160,26 @@ def split_test_train_dataset(positive_data_path,negative_data_path):
     data['cleaned_text_2'] = data['cleaned_text_2'].apply(remove_numeric)
 
     data = data.sort_values(by=['SUBJECT_ID', 'HADM_ID']).reset_index()
-    #group multiple discharge summary into single notes
-    grouped_text = data.groupby('SUBJECT_ID')['cleaned_text_2'].apply(lambda x: ','.join(x)).reset_index()
-    data_label = data[['SUBJECT_ID','hf_label']].drop_duplicates()
-    #create a grouped_df of |SUBJECT_ID|notes|hf_label
-    grouped_df = pd.merge(grouped_text,data_label,how='inner',on=['SUBJECT_ID'])
-    max_length=max([len(note.split()) for note in grouped_df['cleaned_text_2'].to_list()])
 
-    #split the dataset into train, test
+    # Concatenate discharge summaries by patient
+    grouped_text = data.groupby('SUBJECT_ID')['cleaned_text_2'].apply(lambda x: ','.join(x)).reset_index()
+    data_label = data[['SUBJECT_ID', 'hf_label']].drop_duplicates()
+
+    # Create a combined dataframe of |SUBJECT_ID|notes|hf_label
+    grouped_df = pd.merge(grouped_text, data_label, how='inner', on=['SUBJECT_ID'])
+    max_length = max([len(note.split()) for note in grouped_df['cleaned_text_2'].to_list()])
+
+    # Split the dataset into train, validation, test
     train_ratio = 0.60
     validation_ratio = 0.20
     test_ratio = 0.20
-    
-    train_data,intermediate_test_data = train_test_split(grouped_df,test_size=1-train_ratio,random_state = 42)
-    val_data,test_data = train_test_split(intermediate_test_data,test_size=test_ratio/(test_ratio + validation_ratio),random_state = 42)
 
+    train_data, val_and_test_data = train_test_split(grouped_df, test_size=1 - train_ratio, random_state=42)
+    val_data, test_data = train_test_split(val_and_test_data, test_size=test_ratio / (test_ratio + validation_ratio),
+                                           random_state=42)
 
-    print(len(train_data),len(val_data),len(test_data),max_length)
-    return train_data,val_data,test_data,max_length
-
-
+    print(len(train_data), len(val_data), len(test_data), max_length)
+    return train_data, val_data, test_data, max_length
 
 if __name__ == "__main__":
     train_ds,val_ds,test_ds,max_length = split_test_train_dataset(POSTIVE_DATA_PATH,NEGATIVE_DATA_PATH)
@@ -200,15 +200,8 @@ if __name__ == "__main__":
     pickle.dump(val_seqs, open(f"{dataset_name_prefix}.seqs.validation", 'wb'), pickle.HIGHEST_PROTOCOL)
     print("val data set created")
 
-
     test_ids, test_labels, test_seqs = create_dataset(test_ds,max_length,avg_flag)
     pickle.dump(test_ids, open(f"{dataset_name_prefix}.ids.test", 'wb'), pickle.HIGHEST_PROTOCOL)
     pickle.dump(test_labels, open(f"{dataset_name_prefix}.labels.test", 'wb'), pickle.HIGHEST_PROTOCOL)
     pickle.dump(test_seqs, open(f"{dataset_name_prefix}.seqs.test", 'wb'), pickle.HIGHEST_PROTOCOL)
     print("test data set created")
-
-
-
-    ### to read the data    
-    #train_seqs = pickle.load(open('dataset.seqs.train'  , 'rb'))
-    #train_seqs[0].toarray().shape  # use toarray() to convert back to numpy array
