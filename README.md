@@ -1,6 +1,6 @@
 # Heart Failure Prediction
 
-Long Title: Applying Natural Language Processing Methods To Predict The Development Of Heart Failure In Patients In The Mimic-Iii Database: Comparison Of Classical Machine Learning Approaches With Deep Learning Methods
+Long Title: Applying Natural Language Processing Methods To Predict The Development Of Heart Failure In Patients In The Mimic-III Database: Comparison Of Classical Machine Learning Approaches With Deep Learning Methods
 
 Authors: Ansel Lim, Daniel Tan, George Seah, Joanne Lee
 
@@ -13,6 +13,8 @@ In this project, we retrospectively analyzed the discharge summary textual data 
 The textual data in these patients’ discharge summaries was preprocessed with standard natural language techniques such as lemmatization and stopword removal. Thereafter, the textual data was embedded in appropriate vector representations before predictive models were trained. 
 
 Classical machine learning techniques (XGBoost and support vector machine) as well as deep learning models (a vanilla recurrent neural network and a transformer-based architecture, namely BERT) were applied using their implementations in popular machine learning and deep learning libraries. 
+
+Watch a video summary of the project here: [https://youtu.be/qAIEKtJm7mI](https://youtu.be/qAIEKtJm7mI).
 
 ## Get started
 
